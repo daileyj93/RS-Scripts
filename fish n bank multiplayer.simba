@@ -1,0 +1,749 @@
+program dj93FishNBank;
+{$define SMART}
+{$I SRL-master/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants
+const
+  LOGIN_NAME0 = '';
+  LOGIN_PASS0 = '';
+
+  LOGIN_NAME1 = '';
+  LOGIN_PASS1 = '';
+
+  RS_WORLD = -1;
+  IS_MEMBER = False;
+  MIN_WAIT = 15000;
+
+//Declare Variables
+var
+  Walk: TRSWalker;
+  pCaptain, pFishDock, pKDock, pDepositBox: TPointArray;
+  Antiban: TAntiban;
+  activeTimer: TTimeMarker;
+  lobDTM, swordyDTM, maxActiveTime, fishCount: Integer;
+
+//Procedure: declarePlayers
+procedure DeclarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS0;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS1;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  //Players.SetCurrent(1);
+  Players.SetCurrent(Random(Players.GetCount()));
+end;
+
+//Procedure: setupAntiban
+procedure SetupAntiban();
+begin
+  Antiban.Init(SKILL_TOTAL, 4);
+
+  Antiban.AddTask([@Antiban.LoseFocus,     ONE_MINUTE*5]);
+  Antiban.AddTask([@Antiban.HoverPlayers,  ONE_MINUTE*8]);
+  Antiban.AddTask([@Antiban.CheckStats,    ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.OpenRandomTab, ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.VeryShortBreak,ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*45]);
+
+  Antiban.AddBreak([02 * ONE_HOUR,   15 * ONE_MINUTE, 0.20]);
+  Antiban.AddBreak([05 * ONE_HOUR,   45 * ONE_MINUTE, 0.85]);
+  Antiban.AddBreak([16 * ONE_HOUR,   08 * ONE_HOUR,   0.99]);
+end;
+
+//function DismissRandom
+function DismissRandom(): Boolean;
+var
+  i: Int32;
+  textAt: TPoint;
+  TPA, Dots: TPointarray;
+  msText: TMSTextArray := MainScreen.GetText(clYellow);
+  name: String := Chatbox.GetDisplayName();
+begin
+  for i:=0 to High(msText) do
+    if(name in msText[i].Text) then
+    begin
+      textAt := msText[i].Bounds.Middle + Point(0,20);
+
+      if (textAt = Point(0,0)) then
+        Exit;
+
+      Mouse.Move(textAt,5);
+      WaitEx(60,30);
+      if not MainScreen.IsUpText('Talk-to') then
+        Continue;
+
+      if ChooseOption.Select('Dismiss') then
+      begin
+        WaitEx(670,40);
+        while minimap.isPlayerMoving() do Wait(40);
+        Exit(True);
+      end;
+      break;
+    end;
+end;
+
+//Procedure: myAntiban
+procedure MyAntiban();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  SRL.DismissRandom();
+  Antiban.DoAntiban();
+end;
+
+//Procedure: walkTo(path : TPointArray)
+procedure WalkTo(path : TPointArray);
+begin
+  if not SRL.isLoggedIn() then
+    Exit();
+
+  MyAntiban();
+  Walk.WalkPath(path);
+end;
+
+//function: InvFishCount
+function InvFishCount(): Integer;
+var
+  i, x, y: Integer;
+
+begin
+  Result := 0;
+  for i := 0 to 27 do
+  begin
+    if FindDTM(lobDTM, x, y, Inventory.GetSlotBox(i))
+    or FindDTM(swordyDTM, x, y, Inventory.GetSlotBox(i)) then
+      Result += 1;
+  end;
+end;
+
+//Function: setUp() : boolean
+function SetUp() : Boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  Walk.Init('karam-sarim-lumy.png');
+
+  pCaptain := [[1635, 311], [1608, 336], [1581, 330], [1560, 323], [1528, 321],
+           [1283, 319], [1154, 257], [1064, 187], [1026, 75], [961, 189],
+           [917, 202], [914, 239], [872, 244], [861, 273], [858, 315]];
+
+  pFishDock := [[555, 599], [473, 584], [447, 503], [445, 468]];
+
+  pKDock := [[445, 468], [447, 503], [473, 584], [555, 599]];
+
+  pDepositBox := [[860, 272], [900, 244], [925, 247]];
+
+  SetupAntiban();
+  DeclarePlayers();
+
+  lobDTM := DTMFromString('mKgEAAHic42OAgN//////AsQfgPgnEDMBxdiAmBuIWaBsZiD+B5T7B1UD0gdTB6L/QsU/A/EPqDwHEPNBMUgdJxDXeSgASUYwFhUUhLMJYSOGgQQAYRgtVA==');
+  swordyDTM := DTMFromString('mPwEAAHiczcxNCkBQFMXx8175DmWNFmNCKRQDUnZiakcG/OWtwMitX/fcwbm5pMG+WjSoUbncY8TsrNiwYIJnpJMfhu0jQYEMEQKESBG72+Kis3fH0/yk1C/mBh7sDg8=');
+  fishCount := 0;
+
+  Result := True;
+end;
+
+//function AtKaramja(): Boolean;
+function AtKaramja(): Boolean;
+var
+  pos: TPoint;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  pos := Walk.GetMyPos();
+  if pos.InBox(Box(0, 353, 424, 642))
+  or pos.InBox(Box(424, 454, 630, 642)) then
+    Exit(True);
+
+  Result := False;
+end;
+
+//function AtPortSarim(): Boolean;
+function AtPortSarim(): Boolean;
+var
+  pos: TPoint;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  pos := Walk.GetMyPos();
+  if pos.InBox(Box(405, 0, 625, 446))
+  or pos.InBox(Box(625, 0, 1154, 642)) then
+    Exit(True);
+
+  Result := False;
+end;
+
+//function OnBoat(): Boolean
+function OnBoat(): Boolean;
+var
+  TPA: TPointArray;
+
+begin
+  FindColors(TPA, 0, Minimap.GetBounds());
+  if (TPA.Len() > 10000) then
+    Exit(True);
+  Result := False;
+end;
+
+//function AtFishingDock(): Boolean;
+function AtFishingDock(): Boolean;
+var
+  pos: TPoint;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  pos := Walk.GetMyPos();
+  if pos.InBox(Box(430, 460, 450, 483)) then
+    Exit(True);
+
+  Result := False;
+end;
+
+//function isFishing();
+function IsFishing(): Boolean;
+var
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  timer.Reset();
+  timer.Start();
+  repeat
+    if (SRL.GetPixelShift(MainScreen.GetPlayerBox(), 100) > 100) then
+      Exit(True);
+  until(timer.GetTime() > 500);
+
+  Writeln(Players.GetCurrent()^.LoginName + ': Not fishing!');
+  Result := False;
+end;
+
+//Procedure: waitLoop
+procedure WaitLoop();
+var
+  invCount, fishWait: Integer;
+  timer, fishTimer: TTimeMarker;
+  breakOut: boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  invCount := Inventory.Count();
+  timer.Reset();
+  timer.Start;
+  repeat
+    if(Inventory.IsFull()) then
+      Break;
+
+    fishWait := RandomRange(MIN_WAIT, MIN_WAIT + 25000);
+    fishTimer.Reset();
+    fishTimer.Start();
+    repeat
+      if not SRL.isLoggedIn() then
+        Exit;
+      SRL.DismissRandom();
+      Wait(RandomRange(100,200));
+      {$IFDEF SMART}
+        Smart.Image.Clear;
+        Smart.Image.DrawText('Count: ' + IntToStr(fishCount + InvFishCount()), Point(615, 205), clBlue);
+      {$ENDIF}
+    until((fishTimer.GetTime > fishWait) or (not IsFishing()));
+
+    breakOut := true;
+    if (Inventory.Count() > invCount) and IsFishing() then
+      begin
+        Writeln(Players.GetCurrent()^.LoginName + ': Caught something!');
+        invCount := Inventory.Count();
+        breakOut := False;
+      end;
+  until(breakOut or (timer.GetTime() > 100000));
+
+  Writeln(Players.GetCurrent()^.LoginName + ': No luck this time. Try again.');
+  Wait(RandomRange(1000,2000));
+end;
+
+//Procedure: GoFish
+procedure GoFish();
+var
+  TPA, Fish: TPointArray;
+  ATPA: T2DPointArray;
+  cageDTM, poonDTM, x, y: Integer;
+  optionText: String;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit();
+
+  if not AtFishingDock() then
+    Exit();
+
+  if(SRL.FindColors(TPA, CTS2(13875869,8,0.27,3.67), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(10);
+    ATPA.FilterSize(3, 50);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    cageDTM := DTMFromString('m0gEAAHic3czNCYMADIbh1JsLdCTHUBSxiIigoOKktcX24A+I0lYn6CtmBE8GnuQ7fOQqIrEhYsNDgBAJMhSoUKot50i1E+EGHy4cvZuB3y1eeOCOWvMTDd7oZO9O+GHFovmLD2aM6BFaJvtyOF/OMH9fdB5u');
+    poonDTM := DTMFromString('mVAEAAHiczcxBCkBgGIThj52d67iDYziOpFB+FLkToVhISsnGBbzlO4GVqWcWsxhXRDL7ZVSBCg1a1CiRI0GEEDFS7HysmDFhQI8Oo24LNpy4ceHQzfcc2voskH/lAY2mGLo=');
+
+    for Fish in ATPA do
+    begin
+      Writeln(Players.GetCurrent()^.LoginName + ': Lets try fishing this spot.');
+      Mouse.Move(Fish[Random(Length(Fish))]);
+
+      Inventory.Open();
+      if FindDTM(cageDTM, x, y, Inventory.GetSlotBox(1)) then
+      begin
+        optionText := 'age';
+      end else
+      if FindDTM(poonDTM, x, y, Inventory.GetSlotBox(1)) then
+      begin
+        optionText := 'poon';
+      end else
+      begin
+        Writeln(Players.GetCurrent()^.LoginName + ': Nothing to fish with.');
+        Players.GetCurrent()^.isActive := False;
+        Logout.ClickLogout();
+        FreeDTM(cageDTM);
+        FreeDTM(poonDTM);
+        Exit();
+      end;
+
+      if MainScreen.IsUpText('age') then
+      begin
+        Mouse.Click(mouse_Right);
+        if(ChooseOption.Select(optionText, mouse_Left, True, False)) then
+        begin
+          Writeln(Players.GetCurrent()^.LoginName + ': Trying to fish.');
+          WaitLoop();
+          Break;
+        end;
+      end;
+    end;
+    FreeDTM(cageDTM);
+    FreeDTM(poonDTM);
+  end;
+  {$IFDEF SMART}
+    Smart.Image.ClearArea(MainScreen.GetBounds());
+  {$ENDIF}
+end;
+
+//procedure DropUnwantedItems
+procedure DropUnwantedItems();
+var
+  i, x, y: Integer;
+
+begin
+  for i := 2 to 27 do
+  begin
+    if (not FindDTM(lobDTM, x, y, Inventory.GetSlotBox(i)))
+    and (not FindDTM(swordyDTM, x, y, Inventory.GetSlotBox(i))) then
+    begin
+      Inventory.DropItem(i, []);
+      Wait(RandomRange(150,350));
+    end;
+  end;
+  Wait(RandomRange(500, 750));
+end;
+
+//Procedure UnDock
+procedure UnDock();
+var
+  TPA, tempTPA, Plank: TPointArray;
+  ATPA, plankATPA: T2DPointArray;
+  colorBox: TBox;
+  timer: TTimeMarker;
+  colSettings: TColorSettings;
+  continue: boolean;
+  kBoatDTM, pBoatDTM, x, y: Integer;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  kBoatDTM := DTMFromString('m6wAAAHic42ZgYEhjYmAIAWIfKAaxQWJlQNwMxC1QugiI3YDqXYHYF4iDgDgKDftB5UEYBF5+e83w7t07MAaxceH/QLVGRGIyAQAPFSbh');
+  pBoatDTM := DTMFromString('m6wAAAHic42ZgYJjGxMDQAsQ1UAxizwTi5UC8GYi3QOkFQOwGVO8KxL5AHATEUWg4ECoPwiDw/ulzhnfv3oExiI0L/weqNSISkwkAj2cofg==');
+  continue := False;
+  timer.Start();
+  repeat
+    if(SRL.FindColors(TPA, CTS2(2375249, 10, 0.05, 0.16), MainScreen.GetBounds()) > 0) then
+    begin
+      ATPA := TPA.Cluster(2);
+      ATPA.FilterSize(10, 150);
+      ATPA.SortByIndex(MainScreen.GetMiddle());
+
+      for TPA in ATPA do
+      begin
+        colorBox := TPA.Bounds().Expand(10);
+        colorBox.LimitTo(MainScreen.GetBounds());
+        if FindColorsTolerance(tempTPA, 8087387, colorBox, 15)
+        and (tempTPA.Len() > 30) then
+          plankATPA.Append(TPA);
+      end;
+
+      {$IFDEF SMART}
+        Smart.Image.DrawATPA(plankATPA);
+      {$ENDIF}
+
+      for Plank in plankATPA do
+      begin
+        Mouse.Move(Plank[Random(Length(Plank))]);
+        Writeln(Players.GetCurrent()^.LoginName + ': Still on the ship!');
+
+        if (MainScreen.IsUpText('angp')) then
+        begin
+          Mouse.Click(mouse_Right);
+          if ChooseOption.Select(['ross'], mouse_Left, True, False) then
+          begin
+            Writeln(Players.GetCurrent()^.LoginName + ': Now, off the ship.');
+            Minimap.WaitPlayerMoving(True, 5000, 150);
+            Wait(RandomRange(1000,2000));
+            continue := True;
+            Break;
+          end;
+        end;
+      end;
+    end;
+    if not continue then
+    begin
+      Minimap.ClickCompass();
+      Wait(RandomRange(300, 1000));
+      MainScreen.SetAngle(True);
+      if FindDTM(kboatDTM, x, y, Minimap.GetBounds())
+      or FindDTM(pBoatDTM, x, y, Minimap.GetBounds()) then
+      begin
+        Mouse.Move(x, y);
+        Mouse.Click(mouse_Left);
+        Minimap.WaitPlayerMoving(True, 5000, 50);
+        Wait(500);
+      end;
+    end;
+  until(continue or (timer.GetTime() > 60000));
+  FreeDTM(kBoatDTM);
+  FreeDTM(pBoatDTM);
+  if not continue then
+  begin
+    Players.GetCurrent()^.isActive := False;
+    Logout.ClickLogout();
+  end;
+  {$IFDEF SMART}
+    Smart.Image.ClearArea(MainScreen.GetBounds());
+  {$ENDIF}
+end;
+
+//Procedure: goToKaramja
+procedure GoToKaramja();
+var
+  TPA, Captain: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+  continue: boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  WalkTo(pCaptain);
+
+  continue := False;
+  timer.Start();
+  repeat
+    if(SRL.FindColors(TPA, CTS2(10701641,6,0.03,0.29), MainScreen.GetBounds) > 0) then
+    begin
+      ATPA := TPA.Cluster(1);
+      ATPA.FilterSize(10, 250);
+      ATPA.SortByIndex(MainScreen.GetMiddle());
+
+      {$IFDEF SMART}
+        Smart.Image.DrawATPA(ATPA);
+      {$ENDIF}
+
+      for Captain in ATPA do
+      begin
+        Mouse.Move(Captain[Random(Length(Captain))]);
+        Writeln(Players.GetCurrent()^.LoginName + ': Searching for seaman.');
+        Wait(100);
+        if MainScreen.IsUpText('alk-to') then
+        begin
+          Writeln(Players.GetCurrent()^.LoginName + ': Talking to the seaman');
+          Mouse.Click(mouse_Right);
+          if ChooseOption.Select('are', mouse_Left, true, false) then
+          begin
+            Wait(RandomRange(1500,2000));
+            if Chatbox.GetLastMessage().Startswith('You do not') then
+            begin
+              Writeln(Players.GetCurrent()^.LoginName + ': Out of coins.');
+              Players.GetCurrent()^.isActive := False;
+              Logout.ClickLogout();
+              Exit();
+            end;
+            if Chatbox.FindOption(['trip', 'cost'], [clBlack]) then
+            begin
+              Chatbox.ChatToOption(['leas'], True, [clBlack, clWhite]);
+              Wait(RandomRange(1000, 1500));
+              ChatBox.ClickContinue(true);
+              if Chatbox.FindOption(['enough'], [clBlack]) then
+              begin
+                Writeln(Players.GetCurrent()^.LoginName + ': Out of coins.');
+                Players.GetCurrent()^.isActive := False;
+                Logout.ClickLogout();
+                Exit();
+              end;
+              Writeln(Players.GetCurrent()^.LoginName + ': Boarding ship!');
+            end;
+            Wait(800);
+            if OnBoat() then
+            begin
+              continue := True;
+              repeat
+                wait(RandomRange(500,800));
+              until(Chatbox.FindOption(['ontin'], [16711680, clWhite]));
+              Wait(RandomRange(500,800)) ;
+              UnDock();
+              Writeln(Players.GetCurrent()^.LoginName + ': Walking to the fishing dock.');
+              WalkTo(pFishDock);
+            end;
+          end;
+        end;
+      end;
+    end;
+  until(continue or (timer.GetTime() > 30000));
+  {$IFDEF SMART}
+    Smart.Image.ClearArea(MainScreen.GetBounds());
+  {$ENDIF}
+end;
+
+//Procedure: goToDepositBox
+procedure GoToDepositBox();
+var
+  TPA, Captain: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+  continue: Boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  Writeln(Players.GetCurrent()^.LoginName + ': Walking to Karamja dock.');
+  WalkTo(pKDock);
+
+  continue := False;
+  timer.Start();
+  repeat
+    if(SRL.FindColors(TPA, CTS2(6896699,5,0.08,0.16), MainScreen.GetBounds) > 0) then
+    begin
+      ATPA := TPA.Cluster(2);
+      ATPA.FilterSize(10, 250);
+      ATPA.SortByIndex(MainScreen.GetMiddle());
+
+      {$IFDEF SMART}
+        Smart.Image.DrawATPA(ATPA);
+      {$ENDIF}
+
+      for Captain in ATPA do
+      begin
+        Mouse.Move(Captain[Random(Length(Captain))]);
+        Writeln(Players.GetCurrent()^.LoginName + ': Searching for customs');
+        Wait(100);
+        if MainScreen.IsUpText('alk-to') then
+        begin
+          Writeln(Players.GetCurrent()^.LoginName + ': Talking to customs.');
+          Mouse.Click(mouse_Right);
+          if ChooseOption.Select(['are'], mouse_Left, True, False) then
+          begin
+            Wait(RandomRange(1500, 2000));
+            if Chatbox.GetLastMessage().Startswith('You do not') then
+            begin
+              Writeln(Players.GetCurrent()^.LoginName + ': Out of coins.');
+              Players.GetCurrent()^.isActive := False;
+              Logout.ClickLogout();
+              Exit();
+            end;
+            if Chatbox.FindOption(['help'], [clBlack]) then
+            begin
+              Chatbox.ChatToOption(['journey', 'jou', 'ney'],true,[clBlack, clWhite]);
+              Wait(RandomRange(500,800));
+              Chatbox.ChatToOption(['hide'],true,[clBlack, clWhite]);
+              Wait(RandomRange(500,800));
+              Chatbox.ChatToOption(['Ok'],true,[clBlack, clWhite]);
+              Wait(RandomRange(500,1500));
+              ChatBox.ClickContinue(True);
+              if Chatbox.FindOption(['enough'], [clBlack]) then
+              begin
+                Writeln(Players.GetCurrent()^.LoginName + ': Out of coins.');
+                Players.GetCurrent()^.isActive := False;
+                Logout.ClickLogout();
+                Exit();
+              end;
+              Writeln(Players.GetCurrent()^.LoginName + ': Boarding ship to Port Sarim.');
+            end;
+            Wait(800);
+            if OnBoat() then
+            begin
+              continue := True;
+              repeat
+                Wait(RandomRange(500,800));
+              until(Chatbox.FindOption(['ontin'],[16711680, clWhite]));
+              Wait(RandomRange(500, 800));
+              UnDock();
+              Writeln(Players.GetCurrent()^.LoginName + ': Going to deposit box.');
+              WalkTo(pDepositBox);
+            end;
+          end;
+        end;
+      end;
+    end;
+  until(continue or (timer.GetTime() > 30000));
+  {$IFDEF SMART}
+    Smart.Image.ClearArea(MainScreen.GetBounds());
+  {$ENDIF}
+end;
+
+//Procedure: depositFish
+procedure DepositFish();
+var
+  TPA, bankDepositBox: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  timer.Start();
+  fishCount += InvFishCount();
+  repeat
+  if(SRL.FindColors(TPA, CTS2(4611176,6,0.08,0.12), MainScreen.GetBounds) > 0) then
+    begin
+      ATPA := TPA.Cluster(1);
+      ATPA.FilterSize(40, 300);
+      ATPA.SortByIndex(MainScreen.GetMiddle());
+
+      {$IFDEF SMART}
+        Smart.Image.DrawATPA(ATPA);
+      {$ENDIF}
+      for bankDepositBox in ATPA do
+      begin
+        Mouse.Move(bankDepositBox[Random(Length(bankDepositBox))]);
+        if (MainScreen.IsUpText('eposi')) then
+        begin
+          if Mouse.Click(ctRed) then
+          begin
+            Writeln(Players.GetCurrent()^.LoginName + ': Depositing fish');
+            Wait(RandomRange(800, 1500));
+            DepositBox.DepositItem(Random(26) + 2, -1,['word','obst']);
+            Wait(RandomRange(300, 1500));
+            Break;
+          end;
+        end;
+      end;
+    end;
+  until((not Inventory.IsFull()) or (timer.GetTime() > 60000) );
+  {$IFDEF SMART}
+    Smart.Image.ClearArea(MainScreen.GetBounds());
+  {$ENDIF}
+end;
+
+//procedure SetupPlayer();
+procedure SetupPlayer();
+begin
+  if not SRL.isLoggedIn() then
+  begin
+    Players.LoginCurrent();
+    MainScreen.SetAngle(True);
+    Options.SetZoomNotch(ZOOM_NOTCH_50);
+  end;
+
+  Writeln('Setting up player');
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+    Smart.Image.DrawText('Count: ' + IntToStr(fishCount + InvFishCount()), Point(615, 205), clBlue);
+  {$ENDIF}
+
+  if OnBoat() then
+  begin
+    Writeln('On the boat!!');
+    UnDock();
+  end;
+
+  if AtKaramja() and Inventory.IsFull() then
+  begin
+   GoToDepositBox();
+   DepositFish();
+  end
+  else if AtPortSarim() and Inventory.IsFull() then
+  begin
+    WalkTo(pDepositBox);
+    DepositFish();
+  end;
+
+  if AtPortSarim() and (not Inventory.IsFull()) then
+    GoToKaramja();
+
+  if AtKaramja() and (not AtFishingDock()) then
+    WalkTo(pFishDock);
+
+end;
+
+
+//main loop
+begin
+  if SetUp() then
+    Writeln(Players.GetCurrent()^.LoginName + ': Ready to roll!');
+
+  repeat
+    activeTimer.Reset();
+    activeTimer.Start();
+    maxActiveTime := RandomRange(3 * ONE_HOUR, 5 * ONE_HOUR);
+    repeat
+      SetupPlayer();
+
+      Minimap.SetCompassAngle(RandomRange(170, 190), False);
+      while(not Inventory.IsFull() and Players.GetCurrent()^.isActive) do
+      begin
+        MyAntiban();
+        if (SRL.isLoggedIn and AtFishingDock()) then
+        begin
+          GoFish();
+          if Inventory.IsFull() then DropUnwantedItems();
+        end
+        else
+          SetupPlayer();
+      end;
+    until((activeTimer.GetTime() > maxActiveTime) or (Players.GetCurrent()^.isActive = False));
+    Players.Next();
+  until(Players.GetActive() = 0);
+
+end.
