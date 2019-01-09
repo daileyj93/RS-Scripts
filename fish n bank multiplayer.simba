@@ -522,21 +522,21 @@ begin
               end;
               Writeln(Players.GetCurrent()^.LoginName + ': Boarding ship!');
             end;
-            Wait(800);
-            if OnBoat() then
-            begin
-              continue := True;
-              repeat
-                wait(RandomRange(500,800));
-              until(Chatbox.FindOption(['ontin'], [16711680, clWhite]));
-              Wait(RandomRange(500,800)) ;
-              UnDock();
-              Writeln(Players.GetCurrent()^.LoginName + ': Walking to the fishing dock.');
-              WalkTo(pFishDock);
-            end;
+            Wait(RandomRange(800, 1500));
           end;
         end;
       end;
+    end;
+    if OnBoat() then
+    begin
+      continue := True;
+      repeat
+        wait(RandomRange(500,800));
+      until(Chatbox.FindOption(['ontin'], [16711680, clWhite]));
+      Wait(RandomRange(500,800)) ;
+      UnDock();
+      Writeln(Players.GetCurrent()^.LoginName + ': Walking to the fishing dock.');
+      WalkTo(pFishDock);
     end;
   until(continue or (timer.GetTime() > 30000));
   {$IFDEF SMART}
@@ -609,21 +609,21 @@ begin
               end;
               Writeln(Players.GetCurrent()^.LoginName + ': Boarding ship to Port Sarim.');
             end;
-            Wait(800);
-            if OnBoat() then
-            begin
-              continue := True;
-              repeat
-                Wait(RandomRange(500,800));
-              until(Chatbox.FindOption(['ontin'],[16711680, clWhite]));
-              Wait(RandomRange(500, 800));
-              UnDock();
-              Writeln(Players.GetCurrent()^.LoginName + ': Going to deposit box.');
-              WalkTo(pDepositBox);
-            end;
+            Wait(RandomRange(800, 1500));
           end;
         end;
       end;
+    end;
+    if OnBoat() then
+    begin
+      continue := True;
+      repeat
+        Wait(RandomRange(500,800));
+      until(Chatbox.FindOption(['ontin'],[16711680, clWhite]));
+      Wait(RandomRange(500, 800));
+      UnDock();
+      Writeln(Players.GetCurrent()^.LoginName + ': Going to deposit box.');
+      WalkTo(pDepositBox);
     end;
   until(continue or (timer.GetTime() > 30000));
   {$IFDEF SMART}
