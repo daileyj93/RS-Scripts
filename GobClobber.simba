@@ -1,4 +1,4 @@
- program DJ93GobStopper;
+ program DJ93GobClobber;
 {$define SMART}
 {$I SRL/OSR.simba}
 {$I RSWalker/Walker.simba}
@@ -39,7 +39,7 @@ begin
   begin
     LoginName := LOGIN_NAME1;
     Password := LOGIN_PASS1;
-    IsActive := True;
+    IsActive := False;
     IsMember := IS_MEMBER;
     World := RS_WORLD;
   end;
@@ -93,7 +93,7 @@ begin
 
   Walk.Init('lumby.png', -1);
   pLumbyCourt := [Point(349, 109), Point(337, 169), Point(334, 229), Point(346, 278), Point(347, 330), Point(273, 335), Point(226, 361), Point(188, 380), Point(156, 391)];
-  pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(320, 310)];
+  pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(333, 283)];
 
   SetupAntiban();
   DeclarePlayers();
@@ -380,7 +380,7 @@ begin
           end;
         end;
         MyAntiban();
-        EquipItems();
+        //EquipItems();
         AttackGoblin();
         MyAntiban();
       end;
