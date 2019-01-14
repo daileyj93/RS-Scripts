@@ -5,41 +5,33 @@
 
 //Declare Constants
 const
-  LOGIN_NAME0 = '';
-  LOGIN_PASS0 = '';
-  RS_WORLD0 = 301;
-  IS_MEMBER0 = False;
+  CLUSTER = 3;
+  SIZE = 10;
 
-  LOGIN_NAME1 = '';
-  LOGIN_PASS1 = '';
-  RS_WORLD1 = 301;
-  IS_MEMBER1 = False;
+  LOGIN_NAME = '';
+  LOGIN_PASS = '';
+  RS_WORLD = 301;
+  IS_MEMBER = false;
 
 
 //Declare Variables
 var
   Walk: TRSWalker;
-  pLumbyCourt, pGobYard, pPasture: TPointArray;
+  pLumbyCourt, pGobYard, boneCoordArray: TPointArray;
+  boneTime, invTime: TTimeMarker;
   Antiban: TAntiban;
+  log, boneCount: Integer;
 
 //Procedure: declarePlayers
 procedure declarePlayers();
 begin
   with Players.New()^ do
   begin
-    LoginName := LOGIN_NAME0;
-    Password := LOGIN_PASS0;
+    LoginName := LOGIN_NAME;
+    Password := LOGIN_PASS;
     IsActive := True;
-    IsMember := IS_MEMBER0;
-    World := RS_WORLD0;
-  end;
-  with Players.New()^ do
-  begin
-    LoginName := LOGIN_NAME1;
-    Password := LOGIN_PASS1;
-    IsActive := True;
-    IsMember := IS_MEMBER1;
-    World := RS_WORLD1;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
   end;
   Players.SetCurrent(0);
 end;
@@ -82,6 +74,11 @@ end;
 
 //Function: setUp() : boolean
 function setUp() : boolean;
+var
+  txt: String;
+  textStringArray: TStringArray;
+  coordExtArray: TExtendedArray;
+
 begin
   {$IFDEF SMART}
     Smart.EnableDrawing := True;
@@ -89,10 +86,26 @@ begin
 
   SRL.Setup();
 
+  //log := CreateFile('C:\Simba\Scripts\looting\log.txt');
+  log := OpenFile('C:\Simba\Scripts\looting\log.txt', True);
+  ReadFileString(log, txt, FileSize(log));
+  CloseFile(log);
+  textStringArray := txt.Explode('][');
+  for txt in textStringArray do
+  begin
+    coordExtArray := txt.ExtractNumbers;
+    if(coordExtArray.Len() = 2) then
+    begin
+      boneCoordArray.Append(Point(Round(coordExtArray[0]), Round(coordExtArray[1])));
+    end;
+  end;
+  Writeln(boneCoordArray);
+  boneCount := 0;
+
   Walk.Init('lumby.png', -1);
   pLumbyCourt := [Point(349, 109), Point(337, 169), Point(334, 229), Point(346, 278), Point(347, 330), Point(273, 335), Point(226, 361), Point(188, 380), Point(156, 391)];
   pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(333, 283)];
-  //pPasture := [Point(4823, 3478), Point(4812, 3433), Point(4814, 3394), Point(4841, 3352)];
+  Walk.MinRunEnergy := 101;
 
   setupAntiban();
   declarePlayers();
@@ -119,25 +132,163 @@ begin
   T.Start;
   repeat
     wait(randomRange(75,250));
-  until((Inventory.Count() > InvCount) or (T.GetTime > 7000));
-  wait(randomRange(1000,2000));
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+      Smart.Image.DrawText('Bones: ' + IntToStr(boneCount), Point(615, 207), clBlue);
+      Smart.Image.DrawText('Inv Time: ' + IntToStr(Round(invTime.GetTime()/1000)) + ' s', Point(615, 453), clBlue);
+    {$ENDIF}
+  until((Inventory.Count() > InvCount) or (not Minimap.isFlagPresent(500)) or
+        (not Minimap.isPlayerMoving(300)) or (T.GetTime > 15000));
+
+  wait(1000);
+end;
+
+//procedure ClickDots();
+procedure ClickDots();
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  x, y: Integer;
+  cs: TColorSettings;
+
+begin
+
+  if FindColorsTolerance(TPA, 215, Minimap.GetBounds, 27, cs)  then
+  begin
+    ATPA := TPA.Cluster(5);
+    TPA := ATPA.Biggest();
+
+    x := TPA[Random(Length(TPA))].X;
+    y := TPA[Random(Length(TPA))].Y;
+
+    Mouse.Move(RandomRange(x - 3, x + 3) , RandomRange(y - 3, y + 3));
+    Mouse.Click(mouse_Left);
+
+    repeat
+      {$IFDEF SMART}
+        Smart.Image.Clear;
+        Smart.Image.DrawText('Bones: ' + IntToStr(boneCount), Point(615, 207), clBlue);
+        Smart.Image.DrawText('Inv Time: ' + IntToStr(Round(invTime.GetTime()/1000)) + ' s', Point(615, 453), clBlue);
+      {$ENDIF}
+      wait(RandomRange(150,300));
+    until((not Minimap.isFlagPresent(500)) or (not Minimap.isPlayerMoving(300)));
+    Wait(1000);
+  end;
+end;
+
+//procedure ClickHotSpot();
+procedure ClickHotSpot();
+var
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  x, y: Integer;
+  cs: TColorSettings;
+
+begin
+  ATPA := boneCoordArray.Cluster(CLUSTER);
+  ATPA.FilterSize(SIZE, __GT__);
+
+  TPA := ATPA[Random(Length(ATPA))];
+
+  x := TPA[Random(Length(TPA))].X;
+  y := TPA[Random(Length(TPA))].Y;
+
+  WalkTo([Point(x, y)]);
+  Wait(1000);
+end;
+
+//function LockedOut(): Boolean;
+function LockedOut(): Boolean;
+var
+  timer: TTimeMarker;
+  waitTime: Integer;
+
+begin
+  timer.Start();
+  waitTime := RandomRange(2500, 3500);
+  repeat
+    Wait(250);
+  until((not Minimap.isFlagPresent()) or (timer.GetTime() > waitTime));
+
+  if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('I can')) then
+    Exit(True);
+end;
+
+//procedure OpenDoor();
+procedure OpenDoor();
+var
+  TPA, Door: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+
+  if(SRL.FindColors(TPA, CTS2(1791857, 9, 0.03, 0.31), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(2);
+    ATPA.FilterSize(400, 1000);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Door in ATPA do
+    begin
+      Wait(RandomRange(500, 1000));
+      Mouse.Move(Door[Random(Length(Door))]);
+      if MainScreen.IsUpText('pen') then
+      begin
+        Mouse.Click(mouse_Right);
+        if ChooseOption.Select(['pen'], mouse_Left, True, False) then
+        begin
+          Writeln('Door: ' + IntToStr(Door.Len()));
+          repeat
+            Wait(RandomRange(150,300));
+          until(not Minimap.isFlagPresent(100));
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+          Exit;
+        end;
+      end
+      else
+      begin
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+    ClickDots();
+  end
+  else
+    ClickDots();
 end;
 
 //Procedure: findBones
-procedure findBones();
+function findBones(): Boolean;
 var
   TPA, Bone, Door: TPointArray;
   ATPA, ATPA2: T2DPointArray;
   continue: boolean;
+  txt: String;
+  invCount: Integer;
 
 begin
   if not SRL.isLoggedIn() then
     TerminateScript;
 
-  if(SRL.FindColors(TPA, CTS2(11119026, 18, 0.12, 0.09), MainScreen.GetBounds) > 0) then
+  Writeln('PS-----------------------------------------: ' + IntToStr(SRL.GetPixelShift(MainScreen.GetPlayerBox(), 100)));
+  if(SRL.FindColors(TPA, CTS2(11382198, 20, 0.10, 0.09), MainScreen.GetBounds) > 0) then
   begin
-    ATPA := TPA.Cluster(2);
-    ATPA.FilterSize(10, 100);
+    if(SRL.GetPixelShift(MainScreen.GetPlayerBox(), 100) > 1000) then
+      Exit;
+
+    ATPA := TPA.Cluster(4);
+    ATPA.FilterSize(30, 300);
     ATPA.SortByIndex(MainScreen.GetMiddle());
 
     {$IFDEF SMART}
@@ -147,66 +298,70 @@ begin
     continue := true;
     for Bone in ATPA do
     begin
-      Mouse.Move(Bone[Random(Length(Bone))]);
+      {$IFDEF SMART}
+        Smart.Image.Clear;
+        Smart.Image.DrawText('Bones: ' + IntToStr(boneCount), Point(615, 207), clBlue);
+        Smart.Image.DrawText('Inv Time: ' + IntToStr(Round(invTime.GetTime()/1000)) + ' s', Point(615, 453), clBlue);
+      {$ENDIF}
+      Mouse.SetPosition(Bone[Random(Length(Bone))]);
+      //Mouse.Move(Bone[Random(Length(Bone))]);
+      txt := MainScreen.GetUpText();
 
-      if (MainScreen.IsUpText('ake')) then
+      if MainScreen.IsUpText(['ake']) then
       begin
-        if Mouse.Click(ctRed) then
+        Mouse.Click(mouse_Right);
+
+        if ChooseOption.Select(['one'], mouse_Left, True, False) then
         begin
-          write('-->');
-          if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('I can')) then
+          if LockedOut() then
           begin
-            if(SRL.FindColors(TPA, CTS2(2122882, 7, 0.02, 0.17), MainScreen.GetBounds) > 0) then
-            begin
-              ATPA2 := TPA.Cluster(2);
-              ATPA2.FilterSize(50, 400);
-              ATPA2.SortByIndex(MainScreen.GetMiddle());
-
-              for Door in ATPA2 do
-              begin
-                Mouse.Move(Door[Random(Length(Door))]);
-                if MainScreen.IsUpText('pen Door') then
-                begin
-                  if Mouse.Click(ctRed) then
-                  begin
-                    repeat
-                      wait(RandomRange(150,300));
-                    until(not Minimap.isFlagPresent(100));
-                  end;
-                end;
-              end;
-
-            end;
+            OpenDoor();
+            {$IFDEF SMART}
+              Smart.Image.Clear;
+            {$ENDIF}
+            Exit(False);
           end;
 
+          invCount := Inventory.Count();
           waitLoop();
-          continue := false;
-          Break;
-        end;
-      end;
-      writeln(Bone.Len);
-    end;
 
-//    if(continue) then
-//    begin
-//      for Bone in ATPA do
-//      begin
-//        Mouse.Move(Bone[Random(Length(Bone))]);
-//        Mouse.Click(mouse_Right);
-//        if ChooseOption.Select('ake', mouse_Left, true, false) then
-//        begin
-//          waitLoop();
-//          write('-->');
-//          Break;
-//        end;
-//        writeln(Bone.Len);
-//        wait(RandomRange(750,2000));
-//      end;
-//    end;
+          if(Inventory.Count > invCount)then
+          begin
+            log := AppendFile('C:\Simba\Scripts\looting\log.txt');
+            WriteFileString(log, '[' + IntToStr(Walk.GetMyPos().X) + ', ' + IntToStr(Walk.GetMyPos().Y) + ']');
+            CloseFile(log);
+
+            boneCoordArray.Append(Walk.GetMyPos());
+            boneCount := boneCount + 1;
+          end;
+
+          continue := false;
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+          write('-->');
+          writeln(Bone.Len);
+          boneTime.Reset();
+          boneTime.Start();
+          Exit(True);
+        end;
+        Wait(RandomRange(350,1000));
+      end;
+      Writeln(Bone.Len);
+    end;
+    if (boneTime.GetTime() > 60000) then
+    begin
+      ClickHotSpot();
+      boneTime.Reset();
+      boneTime.Start();
+    end
+    else
+      ClickDots();
   end;
-  {IFDEF SMART}
+  {$IFDEF SMART}
     Smart.Image.Clear;
-  {ENDIF}
+  {$ENDIF}
+  Result := False;
 end;
 
 //Procedure: doBank
@@ -415,11 +570,31 @@ begin
     end;
 
     if (not Inventory.IsFull()) then
+    begin
       walkTo(pGobYard);
+      if(Minimap.GetRunEnergy() > 80) then
+      begin
+        Minimap.ToggleRun(True);
+      end
+      else
+        Minimap.ToggleRun(False);
+
+      boneTime.Reset();
+      boneTime.Start();
+
+      invTime.Reset();
+      invTime.Start();
+    end;
 
     while(not Inventory.IsFull()) do
     begin
       myAntiban();
+      {$IFDEF SMART}
+        Smart.Image.Clear;
+        Smart.Image.DrawText('Bones: ' + IntToStr(boneCount), Point(615, 207), clBlue);
+        Smart.Image.DrawText('Inv Time: ' + IntToStr(Round(invTime.GetTime()/1000)) + ' s', Point(615, 453), clBlue);
+      {$ENDIF}
+
       findBones();
     end;
 
