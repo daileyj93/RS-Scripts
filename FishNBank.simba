@@ -1,4 +1,4 @@
-program dj93FishNBank;
+program DJ93FishNBank;
 {$define SMART}
 {$I SRL-master/OSR.simba}
 {$I RSWalker/Walker.simba}
