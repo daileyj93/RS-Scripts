@@ -39,7 +39,7 @@ begin
   begin
     LoginName := LOGIN_NAME1;
     Password := LOGIN_PASS1;
-    IsActive := False;
+    IsActive := True;
     IsMember := IS_MEMBER;
     World := RS_WORLD;
   end;
