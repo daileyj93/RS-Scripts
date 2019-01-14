@@ -1,0 +1,428 @@
+ program dj93BoneNBank;
+{$define SMART}
+{$I SRL/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants
+const
+  LOGIN_NAME0 = '';
+  LOGIN_PASS0 = '';
+  RS_WORLD0 = 301;
+  IS_MEMBER0 = False;
+
+  LOGIN_NAME1 = '';
+  LOGIN_PASS1 = '';
+  RS_WORLD1 = 301;
+  IS_MEMBER1 = False;
+
+
+//Declare Variables
+var
+  Walk: TRSWalker;
+  pLumbyCourt, pGobYard, pPasture: TPointArray;
+  Antiban: TAntiban;
+
+//Procedure: declarePlayers
+procedure declarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS0;
+    IsActive := True;
+    IsMember := IS_MEMBER0;
+    World := RS_WORLD0;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS1;
+    IsActive := True;
+    IsMember := IS_MEMBER1;
+    World := RS_WORLD1;
+  end;
+  Players.SetCurrent(0);
+end;
+
+//Procedure: setupAntiban
+procedure setupAntiban();
+begin
+  Antiban.Init(SKILL_TOTAL, 4);
+
+  Antiban.AddTask([@Antiban.LoseFocus,     ONE_MINUTE*5]);
+  Antiban.AddTask([@Antiban.HoverPlayers,  ONE_MINUTE*8]);
+  Antiban.AddTask([@Antiban.CheckStats,    ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.OpenRandomTab, ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.VeryShortBreak,ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*45]);
+
+  Antiban.AddBreak([35 * ONE_MINUTE, 05 * ONE_MINUTE, 0.05]);
+  Antiban.AddBreak([02 * ONE_HOUR,   15 * ONE_MINUTE, 0.20]);
+  Antiban.AddBreak([05 * ONE_HOUR,   45 * ONE_MINUTE, 0.85]);
+  Antiban.AddBreak([16 * ONE_HOUR,   08 * ONE_HOUR,   0.99]);
+end;
+
+//Procedure: myAntiban
+procedure myAntiban();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  SRL.DismissRandom();
+  Antiban.DoAntiban();
+end;
+
+//Procedure: walkTo(path : TPointArray)
+procedure walkTo(path : TPointArray);
+begin
+  myAntiban();
+  Walk.WalkPath(path);
+end;
+
+//Function: setUp() : boolean
+function setUp() : boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  Walk.Init('lumby.png', -1);
+  pLumbyCourt := [Point(349, 109), Point(337, 169), Point(334, 229), Point(346, 278), Point(347, 330), Point(273, 335), Point(226, 361), Point(188, 380), Point(156, 391)];
+  pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(333, 283)];
+  //pPasture := [Point(4823, 3478), Point(4812, 3433), Point(4814, 3394), Point(4841, 3352)];
+
+  setupAntiban();
+  declarePlayers();
+
+  if not SRL.isLoggedIn() then
+  begin
+    Players.LoginCurrent();
+    MainScreen.setAngle(True);
+  end;
+
+  Result := True;
+end;
+
+//Procedure: waitLoop
+procedure waitLoop();
+var
+  InvCount: Integer;
+  T: TTimeMarker;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  InvCount := Inventory.Count();
+  T.Start;
+  repeat
+    wait(randomRange(75,250));
+  until((Inventory.Count() > InvCount) or (T.GetTime > 7000));
+  wait(randomRange(1000,2000));
+end;
+
+//Procedure: findBones
+procedure findBones();
+var
+  TPA, Bone, Door: TPointArray;
+  ATPA, ATPA2: T2DPointArray;
+  continue: boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    TerminateScript;
+
+  if(SRL.FindColors(TPA, CTS2(11119026, 18, 0.12, 0.09), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(2);
+    ATPA.FilterSize(10, 100);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    continue := true;
+    for Bone in ATPA do
+    begin
+      Mouse.Move(Bone[Random(Length(Bone))]);
+
+      if (MainScreen.IsUpText('ake')) then
+      begin
+        if Mouse.Click(ctRed) then
+        begin
+          write('-->');
+          if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('I can')) then
+          begin
+            if(SRL.FindColors(TPA, CTS2(2122882, 7, 0.02, 0.17), MainScreen.GetBounds) > 0) then
+            begin
+              ATPA2 := TPA.Cluster(2);
+              ATPA2.FilterSize(50, 400);
+              ATPA2.SortByIndex(MainScreen.GetMiddle());
+
+              for Door in ATPA2 do
+              begin
+                Mouse.Move(Door[Random(Length(Door))]);
+                if MainScreen.IsUpText('pen Door') then
+                begin
+                  if Mouse.Click(ctRed) then
+                  begin
+                    repeat
+                      wait(RandomRange(150,300));
+                    until(not Minimap.isFlagPresent(100));
+                  end;
+                end;
+              end;
+
+            end;
+          end;
+
+          waitLoop();
+          continue := false;
+          Break;
+        end;
+      end;
+      writeln(Bone.Len);
+    end;
+
+//    if(continue) then
+//    begin
+//      for Bone in ATPA do
+//      begin
+//        Mouse.Move(Bone[Random(Length(Bone))]);
+//        Mouse.Click(mouse_Right);
+//        if ChooseOption.Select('ake', mouse_Left, true, false) then
+//        begin
+//          waitLoop();
+//          write('-->');
+//          Break;
+//        end;
+//        writeln(Bone.Len);
+//        wait(RandomRange(750,2000));
+//      end;
+//    end;
+  end;
+  {IFDEF SMART}
+    Smart.Image.Clear;
+  {ENDIF}
+end;
+
+//Procedure: doBank
+procedure doBank();
+var
+  TPA, TPA2, Stairs, Banker: TPointArray;
+  ATPA, ATPA2: T2DPointArray;
+  Temp: TPoint;
+  continue: boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    TerminateScript;
+
+  if not (Minimap.GetCompassAngle(true) = 0) then
+  begin
+    Minimap.SetCompassAngle(0,false);
+    wait(RandomRange(500,1000));
+    MainScreen.SetAngle(true);
+    wait(RandomRange(500,1000));
+  end;
+
+  //climb up bottom flight of stairs
+  if(SRL.FindColors(TPA, CTS2(606304, 0, 0, 0), MainScreen.GetBounds) > 0) then
+  begin
+    continue := false;
+    ATPA := TPA.Cluster(2);
+    writeln(ATPA.Len);
+    ATPA.FilterSize(10, 100);
+    ATPA.SortByIndex(MainScreen.GetMiddle);
+
+    for Stairs in ATPA do
+    begin
+      Mouse.Move(Stairs[Random(Length(Stairs))]);
+
+      Mouse.Click(mouse_Right);
+      if ChooseOption.Select('limb-up',mouse_left,true,false) then
+      begin
+        continue := true;
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1200,1500));
+        Break;
+      end;
+    end;
+  end;
+
+  //climb up top flight of stairs
+  if((SRL.FindColors(TPA, CTS2(606304, 0, 0, 0), MainScreen.GetBounds) > 0) and continue) then
+  begin
+    continue := false;
+    ATPA := TPA.Cluster(2);
+    writeln(ATPA.Len);
+    ATPA.FilterSize(25, 100);
+    ATPA.SortByIndex(MainScreen.GetMiddle);
+
+    for Stairs in ATPA do
+    begin
+      Mouse.Move(Stairs[Random(Length(Stairs))]);
+
+      Mouse.Click(mouse_Right);
+      if ChooseOption.Select('limb-up',mouse_left,true,false) then
+      begin
+        continue := true;
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1200,1500));
+        Break;
+      end;
+    end;
+  end;
+
+  //walk to bank symbol
+  if((SRL.FindColors(TPA2, CTS2(16620110, 0, 0, 0), Minimap.GetBounds) > 0) and continue) then
+  begin
+    ATPA2 := TPA2.Cluster(2);
+    ATPA2.FilterSize(1, 10);
+    ATPA2.SortByIndex(Minimap.GetMiddle);
+
+    for Banker in ATPA2 do
+    begin
+      Mouse.Click(Banker[0],mouse_left);
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(500,1200));
+      Break;
+    end;
+  end;
+
+  //walk into bank
+  if((SRL.FindColors(TPA2, CTS2(1349549, 3, 0.03, 0.62), MainScreen.GetBounds) > 0) and continue) then
+  begin
+    ATPA2 := TPA2.Cluster(2);
+    ATPA2.FilterSize(30, 500);
+
+    Temp := Minimap.GetMiddle;
+    Temp.X := 515;
+    Temp.Y := 4;
+    ATPA2.SortByIndex(Temp);
+
+    for Banker in ATPA2 do
+    begin
+      Mouse.Click(Banker[Banker.Len-1],mouse_left);
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1000,1200));
+      Break;
+    end;
+  end;
+
+  //deposit in bank
+  myAntiban();
+  if not (Minimap.GetCompassAngle(true) = 0) then
+  begin
+    Minimap.SetCompassAngle(0,false);
+    wait(RandomRange(500,1000));
+    MainScreen.SetAngle(true);
+  end;
+  BankScreen.Open(blLumbridge);
+  if BankScreen.IsOpen(5000) then
+  begin
+    wait(randomRange(150, 500));
+    BankScreen.DepositAll();
+    wait(randomRange(3000,5000));
+  end;
+
+  //walk to stairs
+  Temp.X := RandomRange(635,650);
+  Temp.Y := RandomRange(140,155);
+  Mouse.Move(Temp);
+  Mouse.Click(mouse_Left);
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1500,3000));
+
+  //climb down top flight of stairs
+  if((SRL.FindColors(TPA, CTS2(604758, 0, 0, 0), MainScreen.GetBounds) > 0) and continue) then
+  begin
+    continue := false;
+    ATPA := TPA.Cluster(2);
+    writeln(ATPA.Len);
+    ATPA.FilterSize(1, 25);
+    ATPA.SortByIndex(MainScreen.GetMiddle);
+
+    for Stairs in ATPA do
+    begin
+      Mouse.Move(Stairs[Random(Length(Stairs))]);
+
+      Mouse.Click(mouse_Right);
+      if ChooseOption.Select('limb-down',mouse_left,true,false) then
+      begin
+        continue := true;
+         repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1200,1500));
+        Break;
+      end;
+    end;
+  end;
+
+  //climb down bottom flight of stairs
+  if((SRL.FindColors(TPA, CTS2(606304, 0, 0, 0), MainScreen.GetBounds) > 0) and continue) then
+  begin
+    continue := false;
+    ATPA := TPA.Cluster(2);
+    writeln(ATPA.Len);
+    ATPA.FilterSize(10, 100);
+    ATPA.SortByIndex(MainScreen.GetMiddle);
+
+    for Stairs in ATPA do
+    begin
+      Mouse.Move(Stairs[Random(Length(Stairs))]);
+
+      Mouse.Click(mouse_Right);
+      if ChooseOption.Select('limb-down',mouse_left,true,false) then
+      begin
+        continue := true;
+        repeat
+          wait(randomRange(150,300));
+        until(not Minimap.isFlagPresent(100));
+        wait(randomRange(1200,1500));
+        Break;
+      end;
+    end;
+  end;
+
+end;
+
+
+//Main Loop
+begin
+  if setUp() then
+    writeln('Ready to roll!');
+
+  repeat
+    if Inventory.IsFull() then
+    begin
+      walkTo(pLumbyCourt);
+      doBank();
+    end;
+
+    if (not Inventory.IsFull()) then
+      walkTo(pGobYard);
+
+    while(not Inventory.IsFull()) do
+    begin
+      myAntiban();
+      findBones();
+    end;
+
+  until(false);
+
+end.

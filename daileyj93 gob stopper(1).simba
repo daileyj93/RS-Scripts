@@ -1,0 +1,393 @@
+ program DJ93GobStopper;
+{$define SMART}
+{$I SRL/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants
+const
+  LOGIN_NAME0 = '';
+  LOGIN_PASS0 = '';
+
+  LOGIN_NAME1 = '';
+  LOGIN_PASS1 = '';
+
+
+  RS_WORLD = -1;
+  IS_MEMBER = False;
+
+
+//Declare Variables
+var
+  Walk: TRSWalker;
+  Antiban: TAntiban;
+  pLumbyCourt, pGobYard: TPointArray;
+  activeTimer: TTimeMarker;
+  maxActivetime: Integer;
+
+//Procedure: DeclarePlayers
+procedure DeclarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS0;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS1;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  Players.SetCurrent(1);
+end;
+
+//Procedure: SetupAntiban
+procedure SetupAntiban();
+begin
+  Antiban.Init(SKILL_TOTAL, 4);
+
+  Antiban.AddTask([@Antiban.LoseFocus,     ONE_MINUTE*5]);
+  Antiban.AddTask([@Antiban.HoverPlayers,  ONE_MINUTE*8]);
+  Antiban.AddTask([@Antiban.CheckStats,    ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.OpenRandomTab, ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.VeryShortBreak,ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*45]);
+
+  Antiban.AddBreak([15 * ONE_MINUTE, 02 * ONE_MINUTE, 0.50]);
+  Antiban.AddBreak([30 * ONE_MINUTE,   5 * ONE_MINUTE, 0.70]);
+  Antiban.AddBreak([01 * ONE_HOUR,   15 * ONE_MINUTE, 0.85]);
+  Antiban.AddBreak([02 * ONE_HOUR,   20 * ONE_MINUTE,   0.99]);
+end;
+
+//Procedure: MyAntiban
+procedure MyAntiban();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  SRL.DismissRandom();
+  Antiban.DoAntiban();
+end;
+
+//Procedure: WalkTo(path : TPointArray)
+procedure WalkTo(path : TPointArray);
+begin
+  MyAntiban();
+  Walk.WalkPath(path);
+end;
+
+//Function: SetUp() : Boolean
+function SetUp() : Boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  Walk.Init('lumby.png', -1);
+  pLumbyCourt := [Point(349, 109), Point(337, 169), Point(334, 229), Point(346, 278), Point(347, 330), Point(273, 335), Point(226, 361), Point(188, 380), Point(156, 391)];
+  pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(320, 310)];
+
+  SetupAntiban();
+  DeclarePlayers();
+
+  if not SRL.isLoggedIn() then
+  begin
+    Players.LoginCurrent();
+    MainScreen.SetAngle(True);
+  end;
+
+  Result := True;
+end;
+
+//function InCombat(): Boolean;
+function InCombat(): Boolean;
+var
+  timer: TTimeMarker;
+  hpBars: THPBarArray;
+  bar: THPBar;
+  i: Integer;
+  diff: Extended;
+
+begin
+  timer.Start();
+  repeat
+    hpBars := MainScreen.FindHPBars(MainScreen.GetPlayerBox());
+
+    for bar in hpBars do
+    begin
+      diff := Abs(Minimap.GetHPPercent() - (bar.Percent));
+      if (diff < 10) then
+        Exit(True);
+    end;
+  until(timer.GetTime() > 500);
+
+  Result := False;
+end;
+
+//Procedure: WaitLoop
+procedure WaitLoop();
+var
+  invCount: Integer;
+  timer: TTimeMarker;
+
+begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+
+  invCount := Inventory.Count();
+  timer.Start;
+  repeat
+    Wait(500);
+  until(InCombat() or (timer.GetTime() > 3000));
+
+  repeat
+    MyAntiban();
+    Wait(RandomRange(250, 500));
+  until((not InCombat()) or (timer.GetTime > 60000));
+
+  Wait(Random(250));
+end;
+
+//function LockedOut(): Boolean;
+function LockedOut(): Boolean;
+var
+  timer: TTimeMarker;
+  waitTime: Integer;
+
+begin
+  timer.Start();
+  waitTime := RandomRange(2500, 3500);
+  repeat
+    Wait(250);
+  until((not Minimap.isFlagPresent()) or (timer.GetTime() > waitTime));
+
+  if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('I can')) then
+    Exit(True);
+end;
+
+//procedure OpenDoor();
+procedure OpenDoor();
+var
+  TPA, Door: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if InCombat() then
+    Exit;
+
+  if(SRL.FindColors(TPA, CTS2(1791857, 9, 0.03, 0.31), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(2);
+    ATPA.FilterSize(400, 1000);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Door in ATPA do
+    begin
+      Wait(RandomRange(500, 1000));
+      Mouse.Move(Door[Random(Length(Door))]);
+      if MainScreen.IsUpText('pen') then
+      begin
+        Mouse.Click(mouse_Right);
+        if ChooseOption.Select(['pen'], mouse_Left, True, False) then
+        begin
+          Writeln('Door: ' + IntToStr(Door.Len()));
+          repeat
+            Wait(RandomRange(150,300));
+          until(not Minimap.isFlagPresent(100));
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+          Exit;
+        end;
+      end;
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+  end
+  else
+    WalkTo(pGobYard);
+end;
+
+//function GobIsFighting(point: TPoint): Boolean;
+function GobIsFighting(point: TPoint): Boolean;
+var
+  hpBars: THPBarArray;
+  bar: THPBar;
+  gobBox, tmpBox: TBox;
+
+begin
+  hpBars := MainScreen.FindHPBars(MainScreen.GetBounds());
+  for bar in hpBars do
+  begin
+    tmpBox := bar.Bounds;
+    gobBox := Box(tmpBox.X1, tmpBox.Y1, tmpBox.X2, tmpBox.Y2 + 20);
+    if point.InBox(gobBox) then
+      Exit(True);
+  end;
+  Result := False;
+end;
+
+
+//Procedure: AttackGoblin()
+procedure AttackGoblin();
+var
+  TPA, Gob: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if InCombat() then
+  begin
+    WaitLoop();
+    Exit;
+  end;
+
+  if(SRL.FindColors(TPA, CTS2(6862236, 17, 0.27, 0.79), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(1);
+    ATPA.FilterSize(5, 25);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Gob in ATPA do
+    begin
+      if GobIsFighting(Gob.Bounds().Middle()) then
+        Break;
+      Writeln('Other: ' + IntToStr(Gob.Len()));
+      Mouse.Move(Gob[Random(Length(Gob))]);
+
+      if (MainScreen.IsUpText('tack')) then
+      begin
+        Mouse.Click(mouse_Right);
+        case Random(5) of
+          0: ChooseOption.Select(['xam'], mouse_Left, True, False);
+        end;
+
+        if ChooseOption.Select(['tack'], mouse_Left, True, False) then
+        begin
+          Writeln('Goblin: ' + IntToStr(Gob.Len()));
+          if LockedOut() then
+          begin
+            OpenDoor();
+            Exit;
+          end;
+
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+
+          WaitLoop();
+          Exit;
+        end;
+      end;
+    end;
+    MyAntiban();
+    WalkTo(pGobYard);
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function IsDead(): Boolean;
+function IsDead(): Boolean;
+begin
+  if(Walk.GetMyPos().InBox(Box(180, 325, 250, 330))) then
+    Exit(True);
+
+  Result := False;
+end;
+
+//function AtGobYard(): Boolean;
+function AtGobYard(): Boolean;
+begin
+  if(Walk.GetMyPos().InBox(Box(280, 220, 390, 340))) then
+    Exit(True);
+
+  Result := False;
+end;
+
+//procedure EquipItems()
+procedure EquipItems();
+var
+  slot : TBox;
+  i: Integer;
+
+begin
+  for i := 0 to 2 do
+  begin
+    if Inventory.IsSlotUsed(i, True) then
+    begin
+      slot := Inventory.GetSlotBox(i).Expand(-5);
+      Wait(RandomRange(250, 1000));
+      Mouse.Move(RandomRange(slot.X1, slot.X2), RandomRange(slot.Y1, slot.Y2));
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(200, 500));
+      ChooseOption.Select(['Wie', 'ear'], mouse_Left, True, False);
+    end;
+  end;
+
+end;
+
+//Main Loop
+begin
+  if SetUp() then
+    Writeln('Ready to roll!');
+
+  repeat
+    activeTimer.Reset();
+    activeTimer.Start();
+    maxActiveTime := RandomRange(1 * ONE_HOUR, 2 * ONE_HOUR);
+
+    repeat
+      if IsDead() then
+      begin
+        MyAntiban();
+        WalkTo(pGobYard);
+        EquipItems();
+        Combat.ToggleButton(cbtControlled, True, 1000);
+      end;
+
+      if (not AtGobYard()) and (not IsDead()) then
+        WalkTo(pGobYard);
+
+      while(AtGobYard()) do
+      begin
+        case Random(15) of
+          0:
+          begin
+            Wait(RandomRange(300,650));
+            Combat.ToggleButton(cbtControlled, True, 1000);
+            Wait(RandomRange(500,1000));
+          end;
+        end;
+        MyAntiban();
+        EquipItems();
+        AttackGoblin();
+        MyAntiban();
+      end;
+    until(activeTimer.GetTime() > maxActiveTime);
+
+    Wait(RandomRange(1000, 2000));
+    Players.Next();
+  until(Players.GetActive() = 0);
+
+end.

@@ -1,0 +1,221 @@
+program dj93PowerShrimp;
+{$define SMART}
+{$I SRL/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants
+const
+  LOGIN_NAME0 = '';
+  LOGIN_PASS0 = '';
+  RS_WORLD0 = -1;
+
+  LOGIN_NAME1 = '';
+  LOGIN_PASS1 = '';
+  RS_WORLD1 = -1;
+
+
+
+  IS_MEMBER = false;
+  POON = false;
+  START_SLOT = 1;
+
+//Declare Variables
+var
+  Walk: TRSWalker;
+  Antiban: TAntiban;
+  WT, activeTime: TTimeMarker;
+  waitTime, maxActiveTime: Integer;
+
+//Procedure: declarePlayers
+procedure declarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS0;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD0;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS1;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD1;
+  end;
+  Players.SetCurrent(0);
+end;
+
+//Procedure: setupAntiban
+procedure setupAntiban();
+begin
+  Antiban.Init(SKILL_TOTAL, 4);
+
+  Antiban.AddTask([@Antiban.LoseFocus,     ONE_MINUTE*5]);
+  Antiban.AddTask([@Antiban.HoverPlayers,  ONE_MINUTE*8]);
+  Antiban.AddTask([@Antiban.CheckStats,    ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.OpenRandomTab, ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.VeryShortBreak,ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*25]);
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*45]);
+
+  Antiban.AddBreak([35 * ONE_MINUTE, 05 * ONE_MINUTE, 0.05]);
+  Antiban.AddBreak([02 * ONE_HOUR,   15 * ONE_MINUTE, 0.20]);
+  Antiban.AddBreak([05 * ONE_HOUR,   45 * ONE_MINUTE, 0.85]);
+  Antiban.AddBreak([16 * ONE_HOUR,   08 * ONE_HOUR,   0.99]);
+end;
+
+//Procedure: myAntiban
+procedure myAntiban();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  SRL.DismissRandom();
+  Antiban.DoAntiban();
+end;
+
+//Function: setUp() : boolean
+function setUp() : boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  setupAntiban();
+  declarePlayers();
+  Inventory.ShiftDrop := true;
+
+  if not SRL.isLoggedIn() then
+  begin
+    Players.LoginCurrent();
+    MainScreen.setAngle(True);
+  end;
+
+  Result := True;
+end;
+
+//Procedure: fishShrimp
+procedure fishShrimp();
+var
+  TPA, Fish: TPointArray;
+  ATPA, ATPA2: T2DPointArray;
+  continue: boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    TerminateScript;
+
+  if(SRL.FindColors(TPA, CTS2(13875869,8,0.27,3.67), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(10);
+    ATPA.FilterSize(1, 50);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    continue := true;
+    for Fish in ATPA do
+    begin
+      Mouse.Move(Fish[Random(Length(Fish))]);
+
+      if (MainScreen.IsUpText('ishin') and not POON) then
+      begin
+        if Mouse.Click(ctRed) then
+        begin
+          Writeln(Players.GetCurrent()^.LoginName + ': Fishing.');
+          continue := false;
+          Break;
+        end;
+      end;
+
+      if (MainScreen.IsUpText('age') and POON) then
+      begin
+        Mouse.Click(mouse_Right);
+        begin
+          Writeln(Players.GetCurrent()^.LoginName + ': Fishing.');
+          ChooseOption.Select(['poon'], mouse_Left, true, false);
+          continue := false;
+          Break;
+        end;
+      end;
+
+    end;
+  end;
+  {IFDEF SMART}
+    Smart.Image.Clear;
+  {ENDIF}
+end;
+
+//Procedure: Drop
+procedure Drop(start: Integer);
+var
+i : Integer;
+
+begin
+  for i := start to 28 do //Dont want to drop the net ;)
+    begin
+     Inventory.DropItem(i);
+     Wait(100+Random(200));
+    end;
+end;
+
+//function isFishing();
+function isFishing(): Boolean;
+var
+  t: TTimeMarker;
+
+begin
+  t.Reset();
+  t.Start();
+  repeat
+    if (SRL.GetPixelShift(MainScreen.GetPlayerBox(),100) > 75) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  until(t.GetTime() > 500);
+  Writeln(Players.GetCurrent()^.LoginName + ': Not fishing.');
+  Result := False;
+end;
+
+begin
+  if setUp() then
+    writeln('Ready to roll!');
+
+  repeat
+    activeTime.Reset();
+    activeTime.Start();
+    maxActiveTime := RandomRange(3 * ONE_HOUR, 6 * ONE_HOUR);
+
+    repeat
+      if Inventory.IsFull() then
+      begin
+        Drop(START_SLOT);
+      end;
+
+      while(not Inventory.IsFull()) do
+      begin
+        myAntiban();
+        fishShrimp();
+        WT.Start;
+        waitTime := RandomRange(30000,60000);
+        repeat
+          if SRL.isLoggedIn() then
+            SRL.DismissRandom();
+
+          wait(RandomRange(600,1200));
+        until((WT.GetTime > waitTime) or (not isFishing()));
+        WT.Reset;
+      end;
+    until(activeTime.GetTime() > maxActiveTime);
+
+    Players.Next();
+  until(false);
+end.

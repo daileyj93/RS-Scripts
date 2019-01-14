@@ -1,0 +1,927 @@
+program DJ93FireTrader;
+{$define SMART}
+{$I SRL/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants (Please enter account info)
+const
+  //CAUTION: Do not use any account that you cannot afford to get banned
+  //This script trades with other players so it will draw lots of attention
+  LOGIN_NAME0 = '';
+  LOGIN_NAME1 = '';
+  LOGIN_NAME2 = '';
+  LOGIN_NAME3 = '';
+
+  LOGIN_PASS = '';
+
+  RS_WORLD = 301;
+  IS_MEMBER = False;
+  PRICE = 10; //price for fire
+  TRADE_WAIT = 10000; //time to wait for customer before closing trade screen
+  HUSH_FACTOR = 3;//1-5 ideal
+
+//Declare Variables
+var
+  Walk: TRSWalker;
+  Antiban: TAntiban;
+
+  pDock, pTree: TPointArray;
+  idleTime, chopTime, LoginTime: TTimeMarker;
+  idleMark, loginMark, currentSlot, fires, i, totalAmt: Integer;
+  ignoreNames: TStringArray;
+  nick: String;
+
+//Procedure: DeclarePlayers
+procedure DeclarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME2;
+    Password := LOGIN_PASS;
+    IsActive := False;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME3;
+    Password := LOGIN_PASS;
+    IsActive := False;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  Players.SetCurrent(0);
+end;
+
+//Procedure: SetupAntiban
+procedure SetupAntiban();
+begin
+  Antiban.Init(SKILL_FIREMAKING, 4);
+
+  Antiban.AddTask([@Antiban.LoseFocus,     ONE_MINUTE*5]);
+  Antiban.AddTask([@Antiban.HoverPlayers,  ONE_MINUTE*8]);
+  Antiban.AddTask([@Antiban.CheckStats,    ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.OpenRandomTab, ONE_MINUTE*10]);
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*20]);
+  Antiban.AddTask([@Antiban.VeryShortBreak,ONE_MINUTE*35]);
+  Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*60]);
+
+  //Antiban.AddBreak([01 * ONE_HOUR, 01 * ONE_MINUTE, 0.99]);
+  Antiban.AddBreak([01 * ONE_HOUR, 02 * ONE_MINUTE, 0.99]);
+  Antiban.AddBreak([03 * ONE_HOUR, 03 * ONE_MINUTE, 0.99]);
+  //Antiban.AddBreak([04 * ONE_HOUR, 07 * ONE_MINUTE, 0.99]);
+  //Antiban.AddBreak([05 * ONE_HOUR, 07 * ONE_MINUTE, 0.99]);
+end;
+
+//Procedure: MyAntiban
+procedure MyAntiban();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  SRL.DismissRandom();
+  Antiban.DoAntiban();
+end;
+
+//procedure RandMouse(x, y, rand: Integer);
+procedure RandMouse(x, y, rand: Integer); overload;
+var
+  xTemp, yTemp: Integer;
+  pt: TPoint;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  xTemp := (x - Round(rand/2)) + Random(rand);
+  yTemp := (y - Round(rand/2)) + Random(rand);
+  pt := Point(xTemp, yTemp);
+  Mouse.Move(pt);
+end;
+
+//function InLumby(): Boolean;
+function InLumby(): Boolean;
+begin
+  Result := Walk.GetMyPos().InBox([1546, 237, 1665, 376]);
+end;
+
+//Procedure: WalkTo(path : TPointArray)
+procedure WalkTo(path : TPointArray);
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if InLumby() then
+  begin
+    Logout.ClickLogout();
+    Players.GetCurrent()^.IsActive := False;
+    Exit;
+  end;
+
+  Walk.WalkPath(path);
+end;
+
+//function InitAmount(): Intger
+function InitAmount(): Integer;
+var
+  log: Integer;
+  txt: String;
+  textStringArray: TStringArray;
+begin
+
+  log := OpenFile('Scripts\burnbot\FTamt' +
+    Players.GetCurrent()^.LoginName.Before('@') + '.txt', True);
+  if log < 0 then
+  begin
+    log := CreateFile('Scripts\burnbot\FTamt' +
+      Players.GetCurrent()^.LoginName.Before('@') + '.txt');
+  end;
+
+  Writeln(log);
+
+  ReadFileString(log, txt, FileSize(log));
+  CloseFile(log);
+  textStringArray := txt.Explode('|');
+  for txt in textStringArray do
+    if txt.IsDigit() then
+      Result := Result + StrToInt(txt);
+
+  Writeln(Result);
+end;
+
+//function InitIgnoreNames(): Intger
+function InitIgnoreNames(): TStringArray;
+var
+  log: Integer;
+  txt: String;
+  textStringArray: TStringArray;
+begin
+  log := OpenFile('Scripts\burnbot\FTignore.txt', True);
+
+  if FileSize(log) >= 0 then
+    ReadFileString(log, txt, FileSize(log));
+  CloseFile(log);
+  Result := txt.Explode('|');
+
+  Writeln(Result);
+end;
+
+function IsIgnored(name: String): Boolean;
+begin
+  Result := (ignoreNames.Find(name) >= 0);
+end;
+
+//Function: SetUp() : Boolean
+function SetUp(): Boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  Walk.Init('karam-sarim-lumy.png', -1);
+  Walk.MinRunEnergy := 20;
+  pDock := [[38, 407], [88, 373], [205, 406], [273, 492], [442, 491]];
+
+  pTree := [[273, 492], [205, 406], [88, 373], [38, 407], [50, 478]];
+
+  SetupAntiban();
+  DeclarePlayers();
+
+  totalAmt := InitAmount();
+  ignoreNames := InitIgnoreNames();
+
+  Result := True;
+end;
+
+//function TradeScreen
+//detescts if the Trade Screen is up from 'Accept' green text color
+function TradeScreen(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if (GetColor(245, 187) = 49152) then
+    Result := True
+  else
+    Result := False;
+end;
+
+//function GetCoins
+//returns the value of coins detected from first slot in trade screen
+function GetCoins(): Integer;
+var
+b1, b2: TBox;
+txt1, txt2: String;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  //set search bounds to first trade slot for coins
+  b1 := IntToBox(314, 78, 350, 86);
+  txt1 := GetTextAtEx(b1, 0, 6, 5, 65535, 20, 'StatChars07');
+  write(txt1 + ' ');
+
+  b2 := IntToBox(365, 65, 450, 73);
+  txt2 := GetTextAtEx(b2, 0, 6, 5, 16777215, 20, 'StatChars07');
+  txt2 := txt2.Explode(',').Merge();
+  write(txt2 + ' ');
+
+  if(txt1.IsDigit() and txt2.IsDigit())then
+  begin
+    if (txt1 = txt2) then
+    begin
+      Result := StrToInt(txt1);
+      Exit;
+    end;
+    Result := -1;
+    Exit;
+  end;
+  Result := 0;
+end;
+
+//function AcceptedScreen
+//detects if the Trade Screen is up from 'Accept' green text color
+function AcceptedScreen(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if (GetColor(236, 307) = 49152) then
+    Result := True
+  else
+    Result := False;
+end;
+
+//procedure Send
+procedure Send(const text: String);
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  Keyboard.Send(text,0,0,0);//no wait time because it can interfere with trade
+  Wait(RandomRange(15,30));
+  Keyboard.PressKey(13);
+  Wait(250);
+end;
+
+//procedure ShowThanks(amount: Integer);
+procedure ShowThanks(amount: Integer; namec: String);
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  Writeln('Trade accepted');
+
+  //if customer paid 420gp do a dance :)
+  if(amount = 420) then
+  begin
+    Wait(RandomRange(100, 500));
+
+    //RandomRange(430,435)
+    //Open "Emote" tab
+    Mouse.Move(RandomRange(705, 715), RandomRange(475, 485));
+    Mouse.Click(mouse_Left);
+    Wait(RandomRange(50, 200));
+
+    //Click "Spin" emote once
+    Mouse.Move(RandomRange(655, 665), RandomRange(375, 385));
+    Mouse.Click(mouse_Left);
+    wait(RandomRange(1200, 1400));
+
+    //Click "Spin" emote twice
+    Mouse.Click(mouse_Left);
+    wait(RandomRange(1200, 1400));
+
+    //Click "Spin" emote third time
+    Mouse.Click(mouse_Left);
+    wait(RandomRange(1200, 1400));
+
+    //Blow a kiss emote
+    Mouse.Move(RandomRange(605, 615), RandomRange(430, 435));
+    Mouse.Click(mouse_Left);
+    Wait(RandomRange(750, 1000));
+
+    case Random(5) of
+      0: Send('Stoners Unite!');
+      1: Send('This guy knows whats up!');
+      2: Send('Ill burn one fore you if you burn one for me!');
+      3: Send('High times my friend!');
+      4: Send('You can smoke this all day!');
+    end;
+
+  end;//end '420gp' if
+
+
+  //Type something to thank customer
+  case Random(35) of
+    0: Send('Thanks buddy! Your the best! :)');
+    1: Send('Thanks ' + namec + '! Lets get this fire started!');
+    2: Send('Thank you ' + namec + '. You are so very generous!');
+    3: Send('You got it homie! One fire comin up!');
+    4: Send('Thanks ' + namec + ', now I can finally feed my pet monkey!');
+    5: Send('Woot woot! Im so loaded now! Your awesome ' + namec + '!');
+    6: Send('Sweet! lets do this!');
+    7: Send('Thanks ' + namec + '');
+    8: Send('ty ' + namec + '. makin fire now!');
+    9: Send('Sparkin it up');
+    10: Send('Its about to get lit!');
+    11: Send('Hells yea! time to burn some logs');
+    12: Send('Thx ' + namec + '. fire on the way.');
+    13: Send('Theres plenty more where that came from!');
+    14: Send('Greatly appreciated ' + namec + '! Tell your friends about ' + nick + '!');
+    15: Send('Thank you ' + namec + '! spread the word ;)');
+    16: Send('Sweet! I could do this all day!');
+    17: Send('Thanks..i can support my family with this');
+    18: Send('Grasius ' + namec + '!');
+    19: Send('Good gracious! bodacious! You sure know how to snag a great deal ' + namec + '!');
+    20: Send('I always knew you wanted a fire ' + namec + ' :)');
+    21: Send('Thx ' + namec + '..after i make this fire..u maybe wanna hangout or somethin?');
+    22: Send('YYEEAAHHH!! I was made for this!!');
+    23: Send('I knew you would warm up to me eventually ' + namec + '');
+    24: Send('Thanks! Spread the fire!... I mean spread the word ;)');
+    25: Send('Fire number ' + IntToStr(fires + 1) + ' comin up!');
+  end;//end case
+end;//end 'trade accepted' if
+
+//function Trade
+function Trade(): Boolean;
+var
+amt, log: Integer;
+offerPoint, acceptPoint: TPoint;
+tradeTimer: TTimeMarker;
+name, namec: String;
+
+TPA, Button: TPointArray;
+ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  tradeTimer.Start();
+
+  //if someone is trying to trade
+  if(Chatbox.GetLastMessage([8323199]).Endswith('trade with you.')) then
+  begin
+    name := Chatbox.GetLastMessage([8323199]).Before(' wish');
+    if IsIgnored(name) then Exit(False);
+    Writeln('Found trade offer');
+    offerPoint.X := RandomRange(10,480);//X range of chatbox first line
+    offerPoint.Y := RandomRange(444,454);//Y range of chatbox first line
+    Mouse.Move(offerPoint);
+    Mouse.Click(mouse_left);
+
+    repeat //wait until trade offer is sent or trade times out
+      Wait(100);
+    until(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('Send') or
+         (tradeTimer.GetTime() > TRADE_WAIT));
+
+    tradeTimer.Reset();
+    tradeTimer.Start();
+
+    //if first or second line of chat shows "Sending trade offer" message
+    if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('Send') or
+       Chatbox.GetTextOnLine(6, CHATBOX_COLORS).Startswith('Send')) then
+    begin
+      Writeln('Clicked trade offer');
+
+      //if trade screen has popped up
+      if(TradeScreen()) then
+      begin
+        tradeTimer.Reset();
+        tradeTimer.Start();
+        Writeln('Waiting on customer');
+
+        repeat //wait until customer offers atleast the PRICE or trade times out----------------------------until other player clicks accept then chekc price
+          wait(100);
+        until((GetColor(192, 292) = 16777215) or (TradeTimer.GetTime() > TRADE_WAIT));
+
+        //check offer in case of scammers
+        amt := GetCoins();
+        if(amt >= PRICE) then
+        begin
+          tradeTimer.Reset();
+          tradeTimer.Start();
+          Writeln(amt);
+
+          //click the first "Accept" button
+          if(amt >= PRICE) then
+          begin
+            acceptPoint.X := RandomRange(230,290);
+            acceptPoint.Y := RandomRange(175,200);
+            Mouse.Move(acceptPoint);
+            Mouse.Click(mouse_left);
+          end;
+
+          repeat //wait until customer clicks first "Accept" button
+              wait(250);
+          until(AcceptedScreen() or (tradeTimer.GetTime() > TRADE_WAIT));
+
+          tradeTimer.Reset();
+          tradeTimer.Start();
+
+          //click the second "Accept" button ----------------------insert future value checks
+          acceptPoint.X := RandomRange(200,250);
+          acceptPoint.Y := RandomRange(300,310);
+          Mouse.Move(acceptPoint);
+          Mouse.Click(mouse_left);
+
+          repeat //wait until customer clicks accept or decline
+            wait(1000);
+          until(not AcceptedScreen() or (tradeTimer.GetTime() > TRADE_WAIT));
+
+          //if chatbox shows "Accepted trade offer" message
+          namec := name.Strip('1234567890');
+          if(Chatbox.GetLastMessage(CHATBOX_COLORS).Startswith('Accept')) then
+          begin
+            totalAmt := totalAmt + amt;
+            Writeln(totalAmt);
+            ShowThanks(amt, namec);
+
+            log := AppendFile('Scripts\burnbot\FTcust.txt');
+            WriteFileString(log, name + ',' + IntToStr(amt) + '|');
+            CloseFile(log);
+
+            log := AppendFile('Scripts\burnbot\FTamt' + Players.GetCurrent()^.LoginName.Before('@') + '.txt');
+            WriteFileString(log, IntToStr(amt) + '|');
+            CloseFile(log);
+
+            Result := True;
+          end;
+
+        end//end 'price check' if
+        else if(amt = -1) then
+          Send('Sorry, ' + namec + '. Coins only..');
+
+        //if tradeTimer is past the TRADE_WAIT time
+        if((tradeTimer.GetTime() > TRADE_WAIT) or (amt < PRICE)) then
+        begin
+
+          //if "Decline" button text color is visible (trade screen still open)
+          if(SRL.FindColors(TPA, CTS2(192, 0, 0, 0), MainScreen.GetBounds) > 0) then
+          begin
+            ATPA := TPA.Cluster(4);
+            ATPA.FilterSize(1, 100);
+            ATPA.SortByIndex(MainScreen.GetMiddle());
+
+            //do for each button (but there should only ever be one)
+            for Button in ATPA do
+            begin
+              Writeln('Cancelling trade');
+
+              //Exit the trade screen
+              Mouse.Move(Button[Random(Length(Button))]);
+              Mouse.Click(mouse_Left);
+            end;//end 'Button' for
+          end;//end 'findColors' if
+        end;//end 'tradeTimer' if
+      end;//end 'TradeScree' if
+    end;//end 'trade offer sent' if
+  end;//end 'found trade offer' if
+end;
+
+//function FriendlyFire
+function FriendlyFire(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  //if there is a message from a friend
+  if(Chatbox.GetLastMessage([0]).Startswith('From')) then
+  begin
+    Writeln('Fire for a friend!');
+    Writeln(Chatbox.GetLastMessage([0]));
+    Result := True;
+    Exit;
+  end;
+  Result := False;
+end;
+
+//function SetFire
+function SetFire(): Boolean;
+var
+slot, x, y, logDTM: Integer;
+isLogClicked: Boolean;
+slotBounds : TBox;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  slot := 3;
+  isLogClicked := False;
+  logDTM := DTMFromString('mAAEAAHic42FgYJjGxMAwEYh7gbgDikHs6UA8H4gXAvESIF4MxLO'
+    + 'A+DFQz0cgfgvEb4D4CRDfgeKbQHwfKgaSewfEzSk2QJKRaGzEQBog3mQIRgYA4kwTWQ==');
+
+  Result := False;
+  repeat
+    if not isLogClicked then
+    begin
+      slotBounds := Inventory.GetSlotBox(slot);
+      Inventory.Use(0); //use Tinderbox
+    end;
+
+    //if slot contains a log
+    if FindDTM(logDTM, x, y, slotBounds) and not isLogClicked then
+    begin
+      RandMouse(x, y, 7);
+      Wait(RandomRange(50,150));
+      Mouse.Click(Mouse_Left);
+      isLogClicked := True;
+      Wait(1000);
+    end;
+
+    //if chatbox shows 'You attempt to light the logs" message
+    if(isLogClicked and
+      (Chatbox.GetLastMessage(CHATBOX_COLORS).Endswith('logs.') or
+       Chatbox.GetTextOnLine(6, CHATBOX_COLORS).Endswith('logs.'))) then
+    begin
+
+      repeat //wait until "Logs begin to burn" message appears
+        wait(100);
+      until(Chatbox.GetLastMessage(CHATBOX_COLORS).Endswith('burn.') or
+            Chatbox.GetTextOnLine(6, CHATBOX_COLORS).Endswith('burn.'));
+
+      currentSlot := slot + 1;
+      Result := True;
+      Break;
+    end;//end 'attempting to light' if
+
+    //if chatbox shows 'You cant light that here' message
+    if(isLogClicked and
+      (Chatbox.GetLastMessage(CHATBOX_COLORS).Endswith('here.') or
+       Chatbox.GetTextOnLine(6, CHATBOX_COLORS).Endswith('here.'))) then
+    begin
+      currentSlot := slot;
+      Result := False;
+      Break;
+    end;//end 'cant light fire here' if
+
+    if not isLogClicked then
+      slot := slot + 1;//go to next slot
+
+  until(slot >= 27);//stop cycling through inventory at end
+  FreeDTM(logDTM);
+end;
+
+//procedure Waitloop
+procedure WaitLoop();
+var
+  invCount: Integer;
+  timer: TTimeMarker;
+  breakOut: Boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  invCount := Inventory.Count();
+  timer.Start();
+  repeat//reapeat until trade accepted, got logs, or timer times out (25s)
+    begin
+      if(Inventory.IsFull()) then
+        begin
+          Break;
+        end;
+
+      breakOut := False;
+
+      //if theres a trade then make a fire
+      if(Trade()) then
+      begin
+       repeat
+       begin
+         WalkTo(pTree);
+         MyAntiBan();
+         Wait(RandomRange(500,1000));
+       end;
+       until(SetFire());
+       breakOut := True;
+      end;//end 'trade' if
+
+      Wait(RandomRange(100,300));
+
+      //if got some logs
+      if (Inventory.Count() > invCount) then
+      begin
+        Writeln('Got a log!');
+        invCount := Inventory.Count();
+        breakOut := True;
+      end;//end 'got logs' if
+
+    end;//end 'repeat' code block
+  until(breakOut or (timer.GetTime() > 25000));
+
+  Wait(RandomRange(200,500));
+end;
+
+//Procedure: CutTree
+function CutTree(): Boolean;
+var
+  TPA, Tree: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  //if a trade is accepted then light a fire
+  if(Trade()) then
+  begin
+    repeat
+    begin
+      WalkTo(pTree);
+      MyAntiBan();
+      Wait(RandomRange(500,1000));
+    end;
+    until(SetFire());
+  end;//end 'trade' if
+
+  //if find color of tree
+  if(SRL.FindColors(TPA, CTS2(2173755, 9, 0.17, 0.30), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(4);
+    ATPA.FilterSize(200, 750);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Tree in ATPA do
+    begin
+      Writeln('Lets cut this tree. Pixel count: ' + InttoStr(Tree.len));
+      Mouse.Move(Tree[Random(Length(Tree))]);
+
+      //if we can chop the tree then chop it
+      if (MainScreen.IsUpText(['hop', 'own', 'ree'])) then
+      begin
+        if Mouse.Click(ctRed) then
+        begin
+          Writeln('Chopping. Pixel count: ' + InttoStr(Tree.len));
+
+          repeat //wait until we get to the tree
+            wait(RandomRange(150,300));
+          until(not Minimap.isFlagPresent(100));
+
+          WaitLoop();
+          Result := true;
+          Break;
+        end;
+      end;//end 'chop' if
+
+    end;//end 'Trees' for
+  end;//end 'findColors' if
+
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+
+end;
+
+procedure TypeMessage();
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  case Random(81) of
+    0: Send('You guys are chill..  But my fiahs are hot!');
+    1: Send('Starting fire for ' + IntToStr(PRICE) + 'gp');
+    2: Send('Anyone want a fire started? Trade me ' + IntToStr(PRICE) + 'gp');
+    3: Send('Need a light? ' + IntToStr(PRICE) + 'gp');
+    4: Send('Sparking people up! ' + IntToStr(PRICE) + 'gp');
+    5: Send('Making fire! ' + IntToStr(PRICE) + 'gp');
+    6: Send('Any1 want fire? ' + IntToStr(PRICE) + 'gp');
+    7: Send('Making fire for cooking, only ' + IntToStr(PRICE) + 'gp!');
+    8: Send('Get your fire here, ' + IntToStr(PRICE) + 'gp!');
+    9: Send('I AM ' + nick + '!!!');
+    10: Send('fire 4 sale ' + IntToStr(PRICE) + 'gp!');
+    11: Send('lighting fires ' + IntToStr(PRICE) + 'gp!');
+    12: Send('get fire from ' + nick + '! ' + IntToStr(PRICE) + 'gp!');
+    13: Send('el fuego de ' + nick + '! ' + IntToStr(PRICE) + 'gp!');
+    14: Send('converting logs to photons! ' + IntToStr(PRICE) + 'gp!');
+    15: Send('I will burn this forest down!!!...for ' + IntToStr(PRICE) + 'gp!');
+    16: Send('Fire for me. Fire for you. ' + IntToStr(PRICE) + 'gp!');
+    17: Send('' + nick + ' at your service. Starting fires ' + IntToStr(PRICE) + 'gp!');
+    18: Send('Dont be a twot! Get your fire from ' + nick + ' ' + IntToStr(PRICE) + 'gp!');
+    19: Send('Boyy!! Do i love fire! Get yours for only  ' + IntToStr(PRICE) + 'gp!');
+    20: Send('Leave ur tinderbox at the bank. Buy fire from ' + nick + ' ' + IntToStr(PRICE) + 'gp!');
+    21: Send('I burn more than Wiz Khalifa on 420. Get ur fire ' + IntToStr(PRICE) + 'gp!');
+    22: Send('My fires can cook food!! Get yours only ' + IntToStr(PRICE) + 'gp!');
+    23: Send('Does Firemaking count as exercise? Cuz i can sure feel the burn!');
+    24: Send('I was gonna be an arson.. But instead ill sell my fire for ' + IntToStr(PRICE) + 'gp!');
+    25: Send('Fire!! ' + IntToStr(PRICE) + 'gp!');
+    26: Send('All proceeds go to a good cause! Selling fire ' + IntToStr(PRICE) + 'gp!');
+    27: Send('My fires can cook food!! Get yours only ' + IntToStr(PRICE) + 'gp!');
+    28: Send('Any ladies wanna let me poon your tuna?');
+    29: Send('Help ' + nick + ' raise money for scienctific research: ' + IntToStr(PRICE) + 'gp!');
+    30: Send('My fires warm your food, but my personality warms your heart');
+    31: Send('I was gonna be a doctor.. but u dont get to burn as much stuff');
+    32: Send('I am so lit!!');
+    33: Send('Selling 1 fire at a time ' + IntToStr(PRICE) + 'gp!');
+    34: Send('I got that fire! ' + IntToStr(PRICE) + 'gp!');
+    35: Send('I wanna be a real boy!!');
+    36: Send('I got mad fire power over here! ' + IntToStr(PRICE) + 'gp!');
+    37: Send('Selling ionized gas ' + IntToStr(PRICE) + 'gp!');
+    38: Send('But my lip hurts real bad!');
+    39: Send('Get ur fire here!');
+    40: Send('Selling 1 fire at a time ' + IntToStr(PRICE) + 'gp!');
+    41: Send('If the sun wasnt 93 million miles away, id be out of business');
+    42: Send('Ive been up for days! Sombody get me some coffee!');
+    43: Send('Fire makes me happy!');
+    44: Send('' + nick + 's the name, fire is the game!');
+    45: Send('When its time for fire, ' + nick + ' never retires!');
+    46: Send('Feel the Burn!!');
+    47: Send('Fire is kinda my thing');
+    48: Send('When its time for fire, ' + nick + ' never retires!');
+    49: Send('Go ahead! Try to scam me.. Its not like im a total noob!');
+    50: Send('Buy a fire before u retire ' + IntToStr(PRICE) + 'gp!');
+    51: Send('Help a brotha out! ' + IntToStr(PRICE) + 'gp! I got ur fire');
+    52: Send('I got fire, lookin for a buyer ' + IntToStr(PRICE) + 'gp!');
+    53: Send('I hope theres fire in heaven');
+    54: Send('I dont haggle with nubs. ' + IntToStr(PRICE) + 'gp! no less');
+    55: Send('Sorry i no longer accept fish as payment. ' + IntToStr(PRICE) + 'gp only!');
+    56: Send('Notice: Anything over ' + IntToStr(PRICE) + 'gp will be considered a donation!');
+    57: Send('My fire will take you higher ' + IntToStr(PRICE) + 'gp!');
+    58: Send('Do I look like a bot to you? Im tryna grind!');
+    59: Send('Time flies when ur havin fun');
+    60: Send('My charming looks are worth ' + IntToStr(PRICE) + 'gp alone. Buy a fire!');
+    61: Send('Sup yall');
+    62: Send('Got wood?');
+    63: Send('Cant believe ppl still light their own fires');
+    65: Send('Pockets full of ashes!!');
+    66: Send('My business is on fire!');
+    67: Send('Is it hot in here or is it just me? Get ur fire ' + IntToStr(PRICE) + ' gp!');
+    68: Send('I wanna set the world on Fire');
+    69: Send('Drop ' + IntToStr(PRICE) + 'gp like its hot');
+    70: Send('Dont forget about me homies');
+    71: Send('Bot lives matter!');
+    72: Send('Support euqal rights! Buy a fire ' + IntToStr(PRICE) + ' gp!');
+    73: Send('Free fire... after ' + IntToStr(PRICE) + 'gp transaction fee.');
+    74: Send('I get real excited for 420gp!');
+    75: Send(IntToStr(fires) + ' fires in all and counting!');
+    76: Send('Four score and  ' + IntToStr(fires) + ' fires ago!...');
+    77: Send('So far, Ive raked in a total of ' + IntToStr(totalAmt) + 'gp makin fires');
+    78: Send('Thanks everyone. Made ' + IntToStr(totalAmt) + 'gp so far!');
+    79: Send(IntToStr(totalAmt) + 'gp for ' + IntToStr(fires) + ' fires. Not to shabby!');
+    80: Send(IntToStr(totalAmt) + 'gp so far! Thanks homies!');
+  end;//end case
+end;
+
+//Main Loop
+begin
+  if SetUp() then
+    Writeln('Ready to roll!');
+
+  repeat
+    idleMark := RandomRange(5000,15000);//idle for 5 to 15 seconds
+    loginMark := RandomRange(20700*1000, 22500*1000);//5:45hr to 6:15hr
+    currentSlot := 3;//first 3 spots for tinderbox, coins and axe
+
+    loginTime.Reset();
+    loginTime.Start();
+    repeat//main loop
+      if not SRL.isLoggedIn() then
+      begin
+        while (Players.GetCurrent()^.isActive = False) do
+        begin
+          if (Players.GetActive() <= 0) then Break;
+          Players.SetCurrent(Players.FCurrent + 1);
+          if (Players.FCurrent > Players.GetCount() - 1) then
+            Players.SetCurrent(0);
+
+          loginMark := RandomRange(20700*1000, 22500*1000);//5:45hr to 6:15hr
+          totalAmt := InitAmount();
+          loginTime.Reset();
+          loginTime.Start();
+        end;
+        if Players.GetCurrent()^.isActive then
+        begin
+          Players.LoginCurrent();
+          MainScreen.setAngle(True);
+          Minimap.SetCompassAngle(180, true);
+          Wait(RandomRange(500,1000));
+          Options.SetZoom(50);
+          currentSlot := 3;//first 3 spots for tinderbox, coins and axe
+          fires := Round(Stats.GetSkillInfo(14,400).XP/40);
+          nick := Chatbox.GetDisplayName();
+          idleTime.Reset();
+          idleTime.Start();
+        end;
+      end;
+
+      if InLumby() then
+      begin
+        Logout.ClickLogout();
+        Players.GetCurrent()^.IsActive := False;
+      end;
+
+      MyAntiBan();
+
+      //if trade accepted or a friend sent a message
+      if(Trade() or FriendlyFire()) then
+      begin
+        //if last fire before going to get logs
+        if(Inventory.Count() = 12) then
+          Send('Last fire right here!!!');
+
+        repeat//keep trying until the fire is lit
+          if InLumby() then Break;
+          WalkTo(pDock);//move incase your standing on a fire
+          SRL.DismissRandom();
+          Wait(RandomRange(500,1000));
+        until(SetFire());
+
+        fires := fires + 1;
+        Writeln('Fires: ' + IntToStr(fires));
+      end;//end 'trade' if
+
+      //if there is only 8 logs left or at last inventory slot
+      if((Inventory.Count() < 12) or (currentSlot > 26)) then
+      begin
+        Wait(250);
+        Send('Meet me behind the volcano if u need fire!');
+        Wait(RandomRange(1000,2000));
+        Send('Gotta chop some logs. Back in 10');
+        Wait(RandomRange(1000,2000));
+
+        chopTime.Start();
+        WalkTo(pTree);
+        Minimap.SetCompassAngle(270, False);
+        Wait(RandomRange(150,300));
+        Minimap.ToggleRun(False);
+        Walk.MinRunEnergy := 100;//dont run while chopping wood
+
+        repeat//chop logs until inv full or 10mins have passed
+          MyAntiBan();
+          if(not CutTree()) then
+          begin
+            WalkTo(pTree);
+            if(Minimap.GetRunEnergy < 75) then
+              Minimap.ToggleRun(false);
+          end;
+        until(Inventory.IsFull() or (chopTime.GetTime() > 600000) or InLumby());
+
+        Walk.MinRunEnergy := 20;
+        chopTime.Reset();
+        currentSlot := 3;
+      end;//end 'inventory low' if
+
+      //if the idle timer is past the idle time marker then move and chat
+      if(idleTime.GetTime() > idleMark) then
+      begin
+        idleMark := RandomRange(20000,45000);
+        idleTime.Reset();
+        idleTime.Start();
+        WalkTo(pDock);
+
+        //chat: advertise fire or just random stuff
+        case Random(HUSH_FACTOR) of
+          0: TypeMessage();
+        end;
+
+        if(Inventory.Count() = 14) then
+        begin
+          case Random(5) of
+            0: Send('3 fires left!');
+          end;
+        end;
+
+        if(Inventory.Count() = 13) then
+        begin
+          case Random(5) of
+            0: Send('2 fires left!');
+          end;
+        end;
+
+        if(Inventory.Count() = 12) then
+        begin
+          case i of
+            0: Send('1 fire left!');
+          end;
+        end;
+
+      end;
+
+      Wait(200);
+
+    until((loginTime.GetTime() > loginMark) or (Players.GetActive() = 0));
+    Players.Next();
+  until(Players.GetActive = 0);
+end.
