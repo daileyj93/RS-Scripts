@@ -102,7 +102,7 @@ begin
   if not SRL.isLoggedIn() then
     Exit;
 
-  SRL.DismissRandom();
+  DismissRandom();
   Antiban.DoAntiban();
 end;
 
@@ -268,7 +268,7 @@ begin
     repeat
       if not SRL.isLoggedIn() then
         Exit;
-      SRL.DismissRandom();
+      DismissRandom();
       Wait(RandomRange(100,200));
       {$IFDEF SMART}
         Smart.Image.Clear;
