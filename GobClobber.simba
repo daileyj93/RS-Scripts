@@ -313,9 +313,20 @@ end;
 
 //function IsDead(): Boolean;
 function IsDead(): Boolean;
+var
+	TPA: TPointArray;
+	timer: TTimeMarker;
+	
 begin
   if not SRL.IsLoggedIn() then
     Exit;
+	
+	timer.Start();
+  repeat
+    FindColors(TPA, 0, Minimap.GetBounds());
+    if (TPA.Len() >= 1000) then
+      Wait(500, 1000);	
+  until((TPA.Len() < 1000) or timer.GetTime() > 5000);
 	
   if(Walk.GetMyPos().InBox(Box(180, 325, 250, 330))) then
     Exit(True);
@@ -355,7 +366,7 @@ begin
       Mouse.Click(mouse_Right);
       Wait(RandomRange(200, 500));
       ChooseOption.Select(['Wie', 'ear'], mouse_Left, True, False);
-	  Wait(500, 750);
+			Wait(500, 750);
     end;
   end;
 
@@ -372,22 +383,23 @@ begin
     maxActiveTime := RandomRange(1 * ONE_HOUR, 2 * ONE_HOUR);
 
     repeat
-	  if not SRL.isLoggedIn() then
-	  begin
-		Players.LoginCurrent();
-		Wait(200, 500);
-		MainScreen.SetAngle(True);
-		Wait(200, 500);
-		Options.SetZoomNotch(ZOOM_NOTCH_50);
-		Wait(500, 750);
-	  end;
+			if not SRL.isLoggedIn() then
+			begin
+				Players.LoginCurrent();
+				Wait(200, 500);
+				MainScreen.SetAngle(True);
+				Wait(200, 500);
+				Options.SetZoomNotch(ZOOM_NOTCH_50);
+				Wait(200, 500);
+				Combat.ToggleButton(cbtControlled, True, 1000);
+				Wait(500, 750);
+			end;
 	  
       if IsDead() then
       begin
         MyAntiban();
         WalkTo(pGobYard);
         EquipItems();
-        Combat.ToggleButton(cbtControlled, True, 1000);
       end;
 
       if (not AtGobYard()) and (not IsDead()) then
@@ -395,18 +407,8 @@ begin
 
       while(AtGobYard()) do
       begin
-        case Random(15) of
-          0:
-          begin
-            Wait(RandomRange(300,650));
-            Combat.ToggleButton(cbtControlled, True, 1000);
-            Wait(RandomRange(500,1000));
-          end;
-        end;
         MyAntiban();
-        //EquipItems();
         AttackGoblin();
-        MyAntiban();
       end;
     until(activeTimer.GetTime() > maxActiveTime);
 
