@@ -20,7 +20,7 @@ const
 var
   Walk: TRSWalker;
   Antiban: TAntiban;
-  pLumbyCourt, pGobYard: TPointArray;
+  pGobYard: TPointArray;
   activeTimer: TTimeMarker;
   maxActivetime: Integer;
 
@@ -59,9 +59,7 @@ begin
   Antiban.AddTask([@Antiban.DoMiscStuff,   ONE_MINUTE*25]);
   Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE*45]);
 
-  Antiban.AddBreak([15 * ONE_MINUTE, 02 * ONE_MINUTE, 0.50]);
-  Antiban.AddBreak([30 * ONE_MINUTE,   5 * ONE_MINUTE, 0.70]);
-  Antiban.AddBreak([01 * ONE_HOUR,   15 * ONE_MINUTE, 0.85]);
+  Antiban.AddBreak([45 * ONE_MINUTE,   5 * ONE_MINUTE, 0.60]);
   Antiban.AddBreak([02 * ONE_HOUR,   20 * ONE_MINUTE,   0.99]);
 end;
 
@@ -78,6 +76,9 @@ end;
 //Procedure: WalkTo(path : TPointArray)
 procedure WalkTo(path : TPointArray);
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   MyAntiban();
   Walk.WalkPath(path);
 end;
@@ -91,18 +92,11 @@ begin
 
   SRL.Setup();
 
-  Walk.Init('lumby.png', -1);
-  pLumbyCourt := [Point(349, 109), Point(337, 169), Point(334, 229), Point(346, 278), Point(347, 330), Point(273, 335), Point(226, 361), Point(188, 380), Point(156, 391)];
+  Walk.Init('lumby.png');
   pGobYard := [Point(155, 391), Point(188, 362), Point(264, 360), Point(307, 334), Point(333, 283)];
 
   SetupAntiban();
   DeclarePlayers();
-
-  if not SRL.isLoggedIn() then
-  begin
-    Players.LoginCurrent();
-    MainScreen.SetAngle(True);
-  end;
 
   Result := True;
 end;
@@ -117,6 +111,9 @@ var
   diff: Extended;
 
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   timer.Start();
   repeat
     hpBars := MainScreen.FindHPBars(MainScreen.GetPlayerBox());
@@ -135,14 +132,12 @@ end;
 //Procedure: WaitLoop
 procedure WaitLoop();
 var
-  invCount: Integer;
   timer: TTimeMarker;
 
 begin
   if not SRL.IsLoggedIn() then
     Exit;
 
-  invCount := Inventory.Count();
   timer.Start;
   repeat
     Wait(500);
@@ -153,7 +148,7 @@ begin
     Wait(RandomRange(250, 500));
   until((not InCombat()) or (timer.GetTime > 60000));
 
-  Wait(Random(250));
+  Wait(250, 750);
 end;
 
 //function LockedOut(): Boolean;
@@ -163,6 +158,9 @@ var
   waitTime: Integer;
 
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   timer.Start();
   waitTime := RandomRange(2500, 3500);
   repeat
@@ -180,6 +178,9 @@ var
   ATPA: T2DPointArray;
 
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   if InCombat() then
     Exit;
 
@@ -229,6 +230,9 @@ var
   gobBox, tmpBox: TBox;
 
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   hpBars := MainScreen.FindHPBars(MainScreen.GetBounds());
   for bar in hpBars do
   begin
@@ -310,6 +314,9 @@ end;
 //function IsDead(): Boolean;
 function IsDead(): Boolean;
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   if(Walk.GetMyPos().InBox(Box(180, 325, 250, 330))) then
     Exit(True);
 
@@ -319,6 +326,9 @@ end;
 //function AtGobYard(): Boolean;
 function AtGobYard(): Boolean;
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   if(Walk.GetMyPos().InBox(Box(280, 220, 390, 340))) then
     Exit(True);
 
@@ -332,16 +342,20 @@ var
   i: Integer;
 
 begin
+  if not SRL.IsLoggedIn() then
+    Exit;
+	
   for i := 0 to 2 do
   begin
     if Inventory.IsSlotUsed(i, True) then
     begin
       slot := Inventory.GetSlotBox(i).Expand(-5);
       Wait(RandomRange(250, 1000));
-      Mouse.Move(RandomRange(slot.X1, slot.X2), RandomRange(slot.Y1, slot.Y2));
+      Mouse.Move(slot);
       Mouse.Click(mouse_Right);
       Wait(RandomRange(200, 500));
       ChooseOption.Select(['Wie', 'ear'], mouse_Left, True, False);
+	  Wait(500, 750);
     end;
   end;
 
@@ -358,6 +372,16 @@ begin
     maxActiveTime := RandomRange(1 * ONE_HOUR, 2 * ONE_HOUR);
 
     repeat
+	  if not SRL.isLoggedIn() then
+	  begin
+		Players.LoginCurrent();
+		Wait(200, 500);
+		MainScreen.SetAngle(True);
+		Wait(200, 500);
+		Options.SetZoomNotch(ZOOM_NOTCH_50);
+		Wait(500, 750);
+	  end;
+	  
       if IsDead() then
       begin
         MyAntiban();
