@@ -1,4 +1,4 @@
-program dj93PowerShrimp;
+program DJ93PowerShrimper;
 {$define SMART}
 {$I SRL/OSR.simba}
 {$I RSWalker/Walker.simba}
