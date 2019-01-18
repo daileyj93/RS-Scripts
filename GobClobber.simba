@@ -5,8 +5,8 @@
 
 //Declare Constants
 const
-  LOGIN_NAME0 = '';
-  LOGIN_PASS0 = '';
+  LOGIN_NAME0 = 'jayc1006@gmail.com';
+  LOGIN_PASS0 = 'snickers';
 
   LOGIN_NAME1 = '';
   LOGIN_PASS1 = '';
@@ -43,7 +43,7 @@ begin
     IsMember := IS_MEMBER;
     World := RS_WORLD;
   end;
-  Players.SetCurrent(1);
+  Players.SetCurrent(0);
 end;
 
 //Procedure: SetupAntiban
@@ -244,12 +244,30 @@ begin
   Result := False;
 end;
 
+//functions FindGoblins(color: TCTS2Color)
+function FindGoblins(color: TCTS2Color):T2DPointArray;
+var
+  gobColorTPA, Gob: TPointArray;
+  gobsATPA, ATPA: T2DPointArray;
+
+begin
+  if(SRL.FindColors(gobColorTPA, color, MainScreen.GetBounds()) > 0) then
+  begin
+    ATPA := gobColorTPA.Cluster(10);
+    ATPA.FilterSize(5, 50);
+
+    for Gob in ATPA do
+      if(SRL.FindColors(gobColorTPA, CTS2(7305353, 16, 0.38, 0.48), Gob.Bounds()) > 50) then
+        gobsATPA.Append(Gob);
+  end;
+  Result := gobsATPA;
+end;
 
 //Procedure: AttackGoblin()
 procedure AttackGoblin();
 var
   TPA, Gob: TPointArray;
-  ATPA: T2DPointArray;
+  gobsATPA: T2DPointArray;
 
 begin
   if not SRL.isLoggedIn() then
@@ -261,20 +279,26 @@ begin
     Exit;
   end;
 
-  if(SRL.FindColors(TPA, CTS2(6862236, 17, 0.27, 0.79), MainScreen.GetBounds) > 0) then
-  begin
-    ATPA := TPA.Cluster(1);
-    ATPA.FilterSize(5, 25);
-    ATPA.SortByIndex(MainScreen.GetMiddle());
+  gobsATPA.Extend(FindGoblins(CTS2(3047804, 13, 0.02, 0.11)));
+  gobsATPA.Extend(FindGoblins(CTS2(4880737, 13, 0.03, 0.40)));
+  gobsATPA.Extend(FindGoblins(CTS2(5150572, 10, 0.04, 0.55)));
+  gobsATPA.Extend(FindGoblins(CTS2(7384729, 12, 0.03, 0.73)));
+  gobsATPA.Extend(FindGoblins(CTS2(1540982, 13, 0.03, 0.84)));
 
-    {$IFDEF SMART}
-      Smart.Image.DrawATPA(ATPA);
-    {$ENDIF}
 
-    for Gob in ATPA do
+  if gobsATPA.Len() > 0 then
+    for Gob in gobsATPA do
+    begin
+      {$IFDEF SMART}
+        Smart.Image.DrawBox(Gob.Bounds(), false, clBlue);
+      {$ENDIF}
+    end;
+
+  if gobsATPA.Len() > 0 then
+    for Gob in gobsATPA do
     begin
       if GobIsFighting(Gob.Bounds().Middle()) then
-        Break;
+        Continue;
       Writeln('Other: ' + IntToStr(Gob.Len()));
       Mouse.Move(Gob[Random(Length(Gob))]);
 
@@ -303,9 +327,8 @@ begin
         end;
       end;
     end;
-    MyAntiban();
-    WalkTo(pGobYard);
-  end;
+  MyAntiban();
+  WalkTo(pGobYard);
   {$IFDEF SMART}
     Smart.Image.Clear;
   {$ENDIF}
@@ -326,7 +349,7 @@ begin
     FindColors(TPA, 0, Minimap.GetBounds());
     if (TPA.Len() >= 1000) then
       Wait(500, 1000);	
-  until((TPA.Len() < 1000) or timer.GetTime() > 5000);
+  until((TPA.Len() < 1000) or (timer.GetTime() > 5000));
 	
   if(Walk.GetMyPos().InBox(Box(180, 325, 250, 330))) then
     Exit(True);
@@ -392,6 +415,8 @@ begin
 				Options.SetZoomNotch(ZOOM_NOTCH_50);
 				Wait(200, 500);
 				Combat.ToggleButton(cbtControlled, True, 1000);
+        Wait(200, 500);
+        EquipItems();
 				Wait(500, 750);
 			end;
 	  
