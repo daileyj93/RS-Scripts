@@ -1,0 +1,2492 @@
+program DJ93TutRunner;
+{$define SMART}
+{$I SRL-master/OSR.simba}
+{$I RSWalker/Walker.simba}
+
+//Declare Constants (Please enter account info)
+const
+  LOGIN_NAME0 = '@gmail.com';
+  LOGIN_NAME1 = '@gmail.com';
+  LOGIN_NAME2 = '@gmail.com';
+  LOGIN_NAME3 = '@gmail.com';
+  LOGIN_NAME4 = '@gmail.com';
+  LOGIN_NAME5 = '@gmail.com';
+  LOGIN_NAME6 = '@gmail.com';
+  LOGIN_NAME7 = '@gmail.com';
+
+
+  LOGIN_PASS = '';
+  FEMALE = False;
+
+  RS_WORLD = 438;
+  IS_MEMBER = false;
+  MIN_READ_TIME = 500;
+  MAX_READ_TIME = 1500;
+  PRINT_OPT = True;
+
+//Declare Variables
+var
+  Antiban: TAntiBan;
+  t: TTimeMarker;
+  x, y, arrowDTM, arrowMiniDTM: Integer;
+
+//Procedure: DeclarePlayers
+procedure DeclarePlayers();
+begin
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME0;
+    Password := LOGIN_PASS;
+    IsActive := False;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME1;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME2;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME3;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME4;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME5;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME6;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  with Players.New()^ do
+  begin
+    LoginName := LOGIN_NAME7;
+    Password := LOGIN_PASS;
+    IsActive := True;
+    IsMember := IS_MEMBER;
+    World := RS_WORLD;
+  end;
+  Players.SetCurrent(4);
+end;
+
+//Function: SetUp() : Boolean
+function SetUp(): Boolean;
+begin
+  {$IFDEF SMART}
+    Smart.EnableDrawing := True;
+  {$ENDIF}
+
+  SRL.Setup();
+
+  arrowDTM := DTMFromString('mAAEAAHic42FgYOBgZGD4D6R5gbQAEAsDMRMQs' +
+    'yJhTkaIPAi/AKq9iAOfAuIjSPg0EOtoaQFJRqIxyC2kAOJNhmBkAAAWoAzI');
+
+  arrowMiniDTM := DTMFromString('mlwAAAHicY2dgYGADYmYg5kSieRgggJcBA' +
+    'djR8K/vUkCSESs2YsANsOuAYCgAAPNkAqU=');
+
+  DeclarePlayers();
+  SetColorToleranceSpeed(0);
+
+  if not SRL.isLoggedIn() then
+  begin
+    Players.LoginCurrent();
+    MainScreen.setAngle(True);
+    Minimap.SetCompassAngle(0,false);
+  end;
+
+  Result := True;
+end;
+
+//procedure SetupAntiban
+procedure SetupAntiban();
+begin
+  Antiban.Init([0, 1, 3, 6, 8, 9, 11, 12, 14, 15, 17, 23], 4);
+
+  Antiban.AddTask([@Antiban.RandomCompass, ONE_MINUTE * 1]);
+  Antiban.AddTask([@Antiban.LoseFocus, ONE_MINUTE * 2]);
+  Antiban.AddTask([@Antiban.HoverPlayers, ONE_MINUTE * 5]);
+  Antiban.AddTask([@Antiban.CheckStats, ONE_MINUTE * 7]);
+  Antiban.AddTask([@Antiban.VeryShortBreak, ONE_MINUTE * 10]);
+  Antiban.AddTask([@Antiban.DoMiscStuff, ONE_MINUTE * 12]);
+
+  AntiBan.AddBreak([5 * ONE_MINUTE, 2 * ONE_MINUTE, 0.25]);
+  AntiBan.AddBreak([10 * ONE_MINUTE, 5 * ONE_MINUTE, 0.25]);
+end;
+
+//procedure DoMyAntiban()
+procedure DoMyAntiban();
+var
+  compassAngle: Extended;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  t.Pause();
+  compassAngle := Minimap.GetCompassAngle(True);
+  Wait(RandomRange(300,1000));
+  Antiban.DoAntiban();
+  Minimap.SetCompassAngle(compassAngle);
+  t.Start();
+end;
+
+//procedure ST()
+procedure ST();
+begin
+  t.Reset();
+  t.Start();
+end;
+
+//function GT()
+function GT(s: Integer): Boolean;
+begin
+  if(t.GetTime() > (s * 1000)) then
+  begin
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+procedure PrintOp();
+var
+  chat: TRSChatOption;
+  options: array of TRSChatOption;
+begin
+  options := Chatbox.GetOptions([clBlack]);
+  for chat in options do
+  begin
+    if(PRINT_OPT) then
+      Writeln(chat.Text + ' (' + IntToStr(chat.Bounds.X1) + ', ' + IntToStr(chat.Bounds.Y1) + ') ('
+                      + IntToStr(chat.Bounds.X2) + ', ' + IntToStr(chat.Bounds.Y2) + ')');
+  end;
+end;
+
+//function NotOkay
+function NotOkay(s: Integer): Boolean; overload;
+begin
+  if not SRL.isLoggedIn() then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if (GT(s)) then
+  begin
+    Result := True;
+    Players.GetCurrent()^.isActive := False;
+    Logout.ClickLogout();
+    Writeln(Players.GetCurrent()^.LoginName + ': Took to long');
+  end
+  else
+    Result := False;
+end;
+
+function NotOkay(): Boolean; overload;
+begin
+  Result := NotOkay(180);
+end;
+
+//procedure RandMouse(x, y, rand: Integer);
+procedure RandMouse(x, y, rand: Integer); overload;
+var
+  xTemp, yTemp: Integer;
+  pt: TPoint;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  xTemp := (x - Round(rand/2)) + Random(rand);
+  yTemp := (y - Round(rand/2)) + Random(rand);
+  pt := Point(xTemp, yTemp);
+  Mouse.Move(pt);
+end;
+
+//procedure RandMouse(pt: TPoint; rand: Integer);
+procedure RandMouse(destPoint: TPoint; rand: Integer); overload;
+var
+  xTemp, yTemp: Integer;
+  pt: TPoint;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  xTemp := (destPoint.X - Round(rand/2)) + Random(rand);
+  yTemp := (destPoint.Y - Round(rand/2)) + Random(rand);
+  pt := Point(xTemp, yTemp);
+  Mouse.Move(pt);
+end;
+
+//function FindMenuText
+function FindMenuText(inText: String): Boolean;
+var
+b: TBox;
+txt : String;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  //set search bounds to first trade slot for coins
+  b.X1 := 42;
+  b.Y1 := 17;
+  b.X2 := 517;
+  b.Y2 := 36;
+
+  txt := GetTextAtEx(b, 1, 3, 1, 2070783, 10, 'UpChars07_s');
+  Writeln(txt);
+  if(txt.Pos(inText) > 0)then
+  begin
+    Result := True;
+    Exit;
+  end;
+  Result := False;
+
+end;
+
+//function IsMenuOpen
+function IsMenuOpen(): Boolean;
+var
+b: TBox;
+cs1: TColorSettings;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  //set search bounds to first trade slot for coins
+  b.X1 := 42;
+  b.Y1 := 17;
+  b.X2 := 517;
+  b.Y2 := 36;
+
+  if FindColorTolerance(x, y,  2070783, b, 20, cs1) then
+  begin
+    Result := True;
+    Exit;
+  end;
+  Result := False;
+
+end;
+
+//procedure DesignCharacter();
+procedure DesignCharacter();
+var
+  i, j, randTemp: Integer;
+  buttonPts: array [0..11] of TPoint;
+  optionsArr: array [0..11] of Integer;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if IsMenuOpen() then
+  begin
+
+    buttonPts[0] := Point(165, 90);
+    buttonPts[1] := Point(165, 125);
+    buttonPts[2] := Point(165, 160);
+    buttonPts[3] := Point(165, 195);
+    buttonPts[4] := Point(165, 230);
+    buttonPts[5] := Point(165, 265);
+    buttonPts[6] := Point(165, 300);
+    buttonPts[7] := Point(465, 95);
+    buttonPts[8] := Point(465, 130);
+    buttonPts[9] := Point(465, 165);
+    buttonPts[10] := Point(465, 200);
+    buttonPts[11] := Point(465, 235);
+
+    optionsArr[0] := 7;//24
+    optionsArr[1] := 6;//15
+    optionsArr[2] := 6;//15
+    optionsArr[3] := 3;//12
+    optionsArr[4] := 2;//2
+    optionsArr[5] := 8;//15
+    optionsArr[6] := 2;//2
+    optionsArr[7] := 5;//27
+    optionsArr[8] := 6;//30
+    optionsArr[9] := 7;//30
+    optionsArr[10] := 6;//6
+    optionsArr[11] := 7;//7
+
+    if FEMALE then
+    begin
+      RandMouse(465, 290, 10);
+      Mouse.Click(mouse_Left);
+      Wait(RandomRange(350, 600));
+      optionsARR[1] := 0;
+    end;
+
+    for i := 0 to 11 do
+    begin
+      RandMouse(buttonPts[i], 10);
+
+      randTemp := Random(optionsArr[i]);
+      for j := 0 to randTemp do
+      begin
+        Mouse.Click(mouse_Left);
+        Wait(RandomRange(100,300));
+      end;
+      Wait(RandomRange(350,600));
+
+    end;
+
+    RandMouse(260, 285, 10);
+    Wait(RandomRange(500,750));
+    Mouse.Click(mouse_Left);
+
+  end;
+
+end;
+
+function ClearCont(clearIt: Boolean = True): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  if clearIt and (GetColor(275, 429) = 16711680) then
+  begin
+    Wait(RandomRange(350, 600));
+    RandMouse(RandomRange(210, 300), 430, 10);
+    Mouse.Click(mouse_Left);
+    Result := True;
+  end
+  else
+    Result := (GetColor(275, 429) = 16711680);
+end;
+
+function ManualContinue(): Boolean;
+var
+  xVal, x1, x2: Integer
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  x1 := -1;
+
+  for xVal := Chatbox.GetBounds().X1 to Chatbox.GetBounds().X2 do
+  begin
+    if((GetColor(xVal, 449) = 16711680) or (GetColor(xVal, 449) = clWhite)) then
+    begin
+      if(x1 < 0) then
+        x1 := xVal;
+      x2 := xVal;
+    end
+  end;
+  if not (x1 < 0) then
+  begin
+    if not Mouse.GetPosition().InBox(IntToBox(x1, 445, x2, 455)) then
+      RandMouse(RandomRange(x1, x2), 450, 10);
+    Mouse.Click(mouse_Left);
+    Result := True;
+    Exit;
+  end;
+
+  Result := False
+
+end;
+
+//function ManualContinueEM
+function ManualContinueEM(): Boolean;
+var
+  xVal, x1, x2: Integer
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  x1 := -1;
+
+  for xVal := Chatbox.GetBounds().X1 to Chatbox.GetBounds().X2 do
+  begin
+    if((GetColor(xVal, 459) = 16711680) or (GetColor(xVal, 459) = clWhite)) then
+    begin
+      if(x1 < 0) then
+        x1 := xVal;
+      x2 := xVal;
+    end
+  end;
+  if not (x1 < 0) then
+  begin
+    RandMouse(RandomRange(x1, x2), 460, 10);
+    Mouse.Click(mouse_Left);
+    Result := True;
+    Exit;
+  end;
+
+  Result := False
+
+end;
+
+//function FindMainArrow()
+function FindMainArrow(): Boolean;
+var
+ timer: TTimeMarker;
+
+begin
+  timer.Start();
+  repeat
+    Wait(50);
+    if(FindDTM(arrowDTM, x, y, MainScreen.GetBounds())) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  until(timer.GetTime() > 500);
+  Result := False;
+end;
+
+//function LocateTutor();
+function LocateTutor(mainR, miniR: Integer): Boolean; overload;
+var
+  timer: TTimeMarker;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  timer.Start();
+
+  repeat
+  begin
+
+    if FindMainArrow() and (not Minimap.isPlayerMoving(200)) then
+    begin
+      RandMouse(x, RandomRange(y, y + 30), mainR);
+
+      Writeln(MainScreen.GetUpText());
+      if(Mainscreen.IsUpText(['-', 'ank'])) then
+      begin
+        Mouse.Click(mouse_Right);
+        Wait(RandomRange(350, 600));
+        if(ChooseOption.Select(['-to', 'ank'], mouse_Left, True, False)) then
+        begin
+
+          repeat
+            Wait(RandomRange(750,1500));
+          until(not Minimap.isFlagPresent(50) or (timer.GetTime() > 10000));
+
+          Wait(750);
+
+          if (ChatBox.FindOption(['ontinu'], [16711680])) then
+          begin
+            Result := True;
+            Exit;
+          end;
+
+        end;
+      end;
+    end
+    else
+    begin
+
+      if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+      begin
+        RandMouse(x, y, miniR);
+        Mouse.Click(mouse_Left);
+
+        repeat
+          Wait(RandomRange(750,1500));
+        until(not Minimap.isFlagPresent(50) or (timer.GetTime() > 12000));
+
+      end
+      else if FindColors(TPA, 255, Minimap.GetBounds) then
+      begin
+        ATPA := TPA.Cluster(1);
+        ATPA.FilterSize(10, 250);
+        ATPA.SortByIndex(Minimap.Center);
+
+        TPA := ATPA.Merge();
+
+        x := TPA[Random(Length(TPA))].X;
+        y := TPA[Random(Length(TPA))].Y;
+
+        RandMouse(x, y, 7);
+        Mouse.Click(mouse_Left);
+
+        Minimap.WaitFlag(30);
+      end;
+    end;
+
+  end;
+  until(timer.GetTime() > 10000);
+  Result := False;
+end;
+
+//function LocateTutor();
+function LocateTutor(): Boolean; overload;
+begin
+  Result := LocateTutor(10, 8);
+end;
+
+//function ClickArrow();
+function ClickArrow(txt: TStringArray; mainR: Integer = 20): Boolean; overload;
+var
+  timer: TTimeMarker;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  timer.Start();
+
+  repeat
+  begin
+
+    if FindMainArrow() and (not Minimap.isPlayerMoving(200)) then
+    begin
+      RandMouse(x, y, mainR);
+
+      if MainScreen.IsUpText(txt) then
+      begin
+        Mouse.Click(mouse_Left);
+
+        repeat
+          Wait(RandomRange(750,1500));
+          if(timer.GetTime() > 10000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+        until(not Minimap.isFlagPresent(50) or (timer.GetTime() > 10000));
+        Result := True;
+        Wait(750);
+        Exit;
+      end;
+    end
+    else
+    begin
+
+      if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+      begin
+        RandMouse(x, y, 8);
+        Mouse.Click(mouse_Left);
+
+        repeat
+          Wait(RandomRange(750,1500));
+        until(not Minimap.isFlagPresent(50) or (timer.GetTime() > 10000));
+
+      end
+      else  if FindColors(TPA, 255, Minimap.GetBounds) then
+      begin
+        ATPA := TPA.Cluster(1);
+        ATPA.FilterSize(10, 250);
+        ATPA.SortByIndex(Minimap.Center);
+
+        TPA := ATPA.Merge();
+
+        x := TPA[Random(Length(TPA))].X;
+        y := TPA[Random(Length(TPA))].Y;
+
+        RandMouse(x, y, 7);
+        Mouse.Click(mouse_Left);
+
+        Minimap.WaitFlag(30);
+      end;
+    end;
+  end;
+  until(timer.GetTime() > 10000);
+  Result := False;
+end;
+
+//function ClickArrow();
+function ClickArrow(): Boolean; overload;
+begin
+  Result := ClickArrow([''], 4);
+end;
+
+//function RightClickArrow
+function RightClickArrow(txt: TStringArray): Boolean; overload;
+var
+  timer: TTimeMarker;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  timer.Start();
+
+  repeat
+  begin
+
+    if FindMainArrow() and (not Minimap.isPlayerMoving(200)) then
+    begin
+      RandMouse(x, y, 7);
+      if MainScreen.IsUpText(txt) then
+      begin
+        Mouse.Click(mouse_Right);
+        if ChooseOption.Select(txt, mouse_Left, True, false) then
+        begin
+          repeat
+            Wait(RandomRange(750,1500));
+            if(timer.GetTime() > 10000) then
+            begin
+              Result := False;
+              Exit;
+            end;
+          until(not Minimap.isFlagPresent(50));
+          Result := True;
+          Wait(750);
+          Exit;
+        end;
+      end;
+    end
+    else
+    begin
+
+      if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+      begin
+        RandMouse(x, y, 4);
+        Mouse.Click(mouse_Left);
+
+        repeat
+          Wait(RandomRange(750,1500));
+        until(not Minimap.isFlagPresent(50) or (timer.GetTime() > 10000));
+
+      end
+      else if FindColors(TPA, 255, Minimap.GetBounds) then
+      begin
+        ATPA := TPA.Cluster(1);
+        ATPA.FilterSize(10, 250);
+        ATPA.SortByIndex(Minimap.Center);
+
+        TPA := ATPA.Merge();
+
+        x := TPA[Random(Length(TPA))].X;
+        y := TPA[Random(Length(TPA))].Y;
+
+        RandMouse(x, y, 7);
+        Mouse.Click(mouse_Left);
+
+        Minimap.WaitFlag(30);
+      end;
+    end;
+  end;
+  until(timer.GetTime() > 10000);
+  Result := False;
+end;
+
+function ClickMainArrow(txt: TStringArray): Boolean; overload;
+var
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+  timer.Start();
+
+  repeat
+  begin
+
+    if FindMainArrow() and (not Minimap.isPlayerMoving(200)) then
+    begin
+      RandMouse(x, y, 10);
+      Mouse.Click(mouse_Right);
+      if ChooseOption.Select(txt, mouse_Left, True, False) then
+      begin
+        repeat
+          Wait(RandomRange(750,1500));
+          if(timer.GetTime() > 10000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+        until((not Minimap.isFlagPresent(50)) or (not Minimap.isPlayerMoving(200)));
+        Result := True;
+        Wait(750);
+        Exit;
+      end;
+    end;
+
+  end;
+  until(timer.GetTime() > 10000);
+  Result := False;
+end;
+
+//function DoFirstTutor();
+function DoFirstTutor(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay);
+
+  //continue to 'experienced player' option
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay);
+  Wait(RandomRange(350, 600));
+  Chatbox.ClickOption(['player'], [clBlack, clWhite]);
+
+  //continue to 'display settings' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+    PrintOp();
+  until((not ManualContinue()) and Chatbox.FindNPCChat('display') or NotOkay);
+
+  //click settings
+  Wait(RandomRange(350,600));
+  repeat
+    RandMouse(675, 485, 7);
+    Mouse.Click(mouse_Left);
+    Wait(RandomRange(500,1000));
+  until((GetColor(570, 206) = 987203) or NotOkay);
+
+ //fixed mode    fuck you jagex. stop updating RS. its supposed to be OS bitches
+//  repeat
+//    RandMouse(635, 320, 10);
+//    Mouse.Click(mouse_Left);
+//    Wait(RandomRange(350, 600));
+//  until((GetColor(600, 325) = 987203) or NotOkay);
+
+  DoMyAntiban();
+  //max brightness
+  repeat
+    Wait(RandomRange(350, 600));
+  until(Options.SetBrightness(3) or NotOkay);
+
+  DoMyAntiban();
+  //set zoom
+  repeat
+    Wait(RandomRange(350, 600));
+  until(Options.SetZoomNotch(ZOOM_NOTCH_50) or NotOkay);
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay);
+
+  DoMyAntiban();
+  //Open door
+  repeat
+    Wait(RandomRange(750,1500));
+  until(RightClickArrow(['pen', 'oor']) or NotOkay);
+
+  DoMyAntiban();
+  Minimap.ToggleRun(True);
+  Result := true;
+end;
+
+//function SetFire
+function SetFire(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  Inventory.Use(4); //use Tinderbox
+  RandMouse(Inventory.GetSlotBox(5).Middle(), 7);//mouse slot
+
+  //if slot contains a log
+  if(MainScreen.IsUpText('ogs')) then
+  begin
+    Wait(RandomRange(50,150));
+    Mouse.Click(mouse_Left);
+
+    //wait until "shrimp" message appears
+    repeat
+      Wait(RandomRange(750, 1200));
+      if ManualContinue() then
+      begin
+        //click random spot
+        RandMouse(MainScreen.GetMiddle, 200);
+        Mouse.Click(mouse_Left);
+        Result := False;
+        Exit;
+      end;
+      PrintOp();
+    until(Chatbox.FindNPCChat('shrimp') or NotOkay);
+
+    Result := True;
+    Exit;
+  end;
+
+  //if chatbox shows 'You cant light that here' message
+  if ClearCont() then
+  begin
+    //click random spot
+    RandMouse(MainScreen.GetMiddle, 200);
+    Mouse.Click(mouse_Left);
+    Result := False;
+    Exit;
+  end;
+
+end;
+
+//procedure: fishShrimp
+procedure FishShrimp();
+var
+  TPA, Fish: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if(SRL.FindColors(TPA, CTS2(13875869,8,0.27,3.67), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(5);
+    ATPA.FilterSize(5, 50);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Fish in ATPA do
+    begin
+      Wait(RandomRange(350,600));
+      Mouse.Move(Fish[Random(Length(Fish))]);
+
+      if (MainScreen.IsUpText('ishing')) then
+      begin
+        Mouse.Click(mouse_left);
+        Break;
+      end;
+
+    end;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function: CookShrimp
+function CookShrimp(slot: Integer; finishText: TStringArray): Boolean;
+var
+  TPA, Fire: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+
+  if(SRL.FindColors(TPA, CTS2(2405597, 12, 0.12, 1.55), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(7);
+    ATPA.FilterSize(10, 200);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    Inventory.Use(slot);
+    Wait(RandomRange(350, 600));
+
+    for Fire in ATPA do
+    begin
+      Mouse.Move(Fire[Random(Length(Fire))]);
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(350, 600));
+      if(ChooseOption.Select('ire', mouse_Left, true, false)) then
+      begin
+        timer.Start();
+        repeat
+          wait(RandomRange(150,300));
+          ClearCont();
+          if(timer.GetTime() > 5000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+          PrintOp();
+        until(Chatbox.FindOption(finishText) or NotOkay);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+
+    Result := False;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function DoSurvivalTutor();
+function DoSurvivalTutor(): Boolean;
+var
+  invCount: Integer;
+  CT: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay);
+
+  //continue to 'backpack' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay);
+  Wait(RandomRange(350, 600));
+
+  DoMyAntiban();
+  //click backback tab
+  repeat
+    Wait(RandomRange(150, 300));
+    RandMouse(640, 185, 10);
+    Wait(RandomRange(150, 300));
+    Mouse.Click(mouse_Left);
+  until(Inventory.Open() or NotOkay);
+
+  DoMyAntiban();
+  //go fish
+  invCount := Inventory.Count();
+  ClickArrow();
+  Wait(RandomRange(4500, 6000));
+  repeat
+    FishShrimp();
+    Wait(RandomRange(4500, 6000));
+  until((Inventory.Count() > 2) or NotOkay);
+
+  //drop extra shrimp
+  DoMyAntiban();
+  if (Inventory.Count() > 3) then
+    Inventory.DropItems([3..Inventory.Count()], ['rimp']);
+
+  DoMyAntiban();
+  //click stats
+  repeat
+    Wait(RandomRange(350, 600));
+    GameTabs.Open(tabStats)
+  until((GetColor(625, 220) = 85981) or NotOkay);
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000, 3000));
+  until(LocateTutor() or NotOkay);
+
+  //continue to 'sparkling fishing spot' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay);
+  Wait(RandomRange(350, 600));
+
+  DoMyAntiban();
+  //cut tree
+  invCount := Inventory.Count();
+  Wait(RandomRange(350, 600));
+  repeat
+    ClickArrow(['hop']);
+    CT.Reset();
+    CT.Start();
+    repeat
+      Wait(RandomRange(500, 1200));
+      Writeln(CT.GetTime());
+    until((CT.GetTime() > 4000) or (Inventory.Count() > invCount) or NotOkay());
+  until((Inventory.Count() > invCount) or NotOkay);
+
+  //drop extra logs
+  DoMyAntiban();
+  if (Inventory.Count() > 6) then
+    Inventory.DropItems([6..Inventory.Count()], ['']);
+
+  DoMyAntiban();
+  //set fire
+  repeat
+    Wait(RandomRange(500, 1000));
+  until(SetFire() or NotOkay);
+
+  //cook shrimp
+  repeat
+    Wait(RandomRange(500, 1000));
+  until(CookShrimp(1, ['burn', 'cook']) or NotOkay);
+  Wait(RandomRange(1000, 2000));
+  repeat
+    Wait(RandomRange(500, 1000));
+  until(CookShrimp(2, ['cook', 'burn', 'recap']) or NotOkay);
+
+  DoMyAntiban();
+  //go through gate
+  repeat
+    Wait(RandomRange(750,1500));
+    RightClickArrow(['ate']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('path') or NotOkay);
+  Result := true;
+
+end;
+
+//function makeDough
+function MakeDough(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  Inventory.Use(5); //use dough
+  RandMouse(Inventory.GetSlotBox(6).Middle(), 7);//mouse slot
+
+  //if slot contains a bucket of water
+  if(MainScreen.IsUpText('water')) then
+  begin
+    Wait(RandomRange(50,150));
+    Mouse.Click(mouse_Left);
+
+    Result := True;
+    Exit;
+  end;
+  Result := False;
+end;
+
+//function DoCookingTutor();
+function DoCookingTutor(): Boolean;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  //go through door
+  repeat
+    Wait(RandomRange(750,1500));
+    RightClickArrow(['pen', 'oor']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('chef') or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(700,2000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to 'dough' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+  Wait(RandomRange(350, 600));
+
+  DoMyAntiban();
+  Inventory.Open();
+  //make dough
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(1000, 300));
+  until(MakeDough() or NotOkay());
+  Wait(RandomRange(350, 600));
+
+  DoMyAntiban();
+  Inventory.Open();
+  //cook dough
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    ClickArrow(['ange']);
+    Wait(RandomRange(1000, 3000));
+
+    ClearCont();
+    PrintOp();
+  until(Chatbox.FindNPCChat('loaf') or Chatbox.FindNPCChat('level') or NotOkay());
+
+  {*DoMyAntiban();
+  //click music tab
+  repeat
+    Wait(RandomRange(350, 600));
+  until(GameTabs.Open(tabMusic) or NotOkay());*}
+
+  DoMyAntiban();
+  //go through door
+  repeat
+    Wait(RandomRange(750,1500));
+  until(RightClickArrow(['pen', 'oor']) or NotOkay());
+
+  {*DoMyAntiban();
+  //click emote tab
+  repeat
+    Wait(RandomRange(350, 600));
+  until(GameTabs.Open(tabEmotes) or NotOkay());
+
+  //click raspberry emote
+  Wait(RandomRange(750, 1200));
+  RandMouse(700, 440, 7);
+  Mouse.Click(mouse_Left);
+
+  DoMyAntiban();
+  //click settings
+  repeat
+    Wait(RandomRange(350, 600));
+  until(GameTabs.Open(tabOptions) or NotOkay());
+
+  //click run
+  Wait(RandomRange(350, 600));
+  repeat
+    Wait(RandomRange(350, 600));
+  until(Options.ToggleRun(True) or NotOkay());*}
+
+  DoMyAntiban();
+  //walk to next tutor and open door
+  repeat
+    Wait(RandomRange(350,600));
+    PrintOp();
+  until(RightClickArrow(['pen', 'oor']) or Chatbox.FindNPCChat('start') or NotOkay());
+
+  Result := True;
+
+end;
+
+//function DoQuestTutor();
+function DoQuestTutor(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to 'flashing icon' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //click quest tab
+  repeat
+    Wait(RandomRange(350, 600));
+    GameTabs.Open(tabQuests);
+  until((GetColor(570, 220) = 2070783) or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+end;
+
+//function: ProspectTin
+function ProspectTin(): Boolean;
+var
+  TPA, Rock: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if(SRL.FindColors(TPA, CTS2(7697791, 8, 0.23, 0.11), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(3);
+    ATPA.FilterSize(50, 500);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    //if(ATPA.Len() > 0) then
+    //begin
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    Wait(RandomRange(350, 600));
+
+    for Rock in ATPA do
+    begin
+      Mouse.Move(Rock[Random(Length(Rock))]);
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(350, 600));
+      if(ChooseOption.Select('ect', mouse_Left, true, false)) then
+      begin
+        timer.Start();
+        repeat
+          wait(RandomRange(150,300));
+          ClearCont();
+          if(timer.GetTime() > 6000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+          PrintOp();
+        until(Chatbox.FindNPCChat('tin') or NotOkay);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+    Result := False;
+  end;
+  begin
+    if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+    begin
+      RandMouse(x, y, 2);
+      Mouse.Click(mouse_Left);
+
+      repeat
+        Wait(RandomRange(750,1500));
+      until((not Minimap.isFlagPresent(50)) or (timer.GetTime() > 10000));
+      Minimap.WaitPlayerMoving(False, 5000, 200);
+    end
+  end;
+end;
+
+//function: ProspectCopper
+function ProspectCopper(): Boolean;
+var
+  TPA, Rock: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if(SRL.FindColors(TPA, CTS2(4150896, 5, 0.10, 0.13), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(3);
+    ATPA.FilterSize(50, 500);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    Wait(RandomRange(350, 600));
+
+    for Rock in ATPA do
+    begin
+      Mouse.Move(Rock[Random(Length(Rock))]);
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(350, 600));
+      if(ChooseOption.Select('ect', mouse_Left, true, false)) then
+      begin
+        timer.Start();
+        repeat
+          wait(RandomRange(150,300));
+          ClearCont();
+          if(timer.GetTime() > 6000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+          PrintOp();
+        until(Chatbox.FindNPCChat('copp') or NotOkay);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+
+    Result := False;
+  end;
+  begin
+    if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+    begin
+      RandMouse(x, y, 2);
+      Mouse.Click(mouse_Left);
+
+      repeat
+        Wait(RandomRange(750,1500));
+      until((not Minimap.isFlagPresent(50)) or (timer.GetTime() > 10000));
+      Minimap.WaitPlayerMoving(False, 5000, 200);
+    end
+  end;
+end;
+
+//function: MineTin
+function MineTin(): Boolean;
+var
+  TPA, Rock: TPointArray;
+  ATPA: T2DPointArray;
+  timer: TTimeMarker;
+  invCount: Integer;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+
+  if(SRL.FindColors(TPA, CTS2(7697791, 8, 0.23, 0.11), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(3);
+    ATPA.FilterSize(50, 500);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    Wait(RandomRange(350, 600));
+
+    for Rock in ATPA do
+    begin
+      invCount := Inventory.Count();
+      Mouse.Move(Rock[Random(Length(Rock))]);
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(350, 600));
+      if(ChooseOption.Select('ine', mouse_Left, true, false)) then
+      begin
+        timer.Start();
+        repeat
+          wait(RandomRange(150,300));
+          ClearCont();
+          if(timer.GetTime() > 6000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+        until((Inventory.Count() > invCount) or NotOkay);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+
+    Result := False;
+  end;
+  begin
+    if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+    begin
+      RandMouse(x, y, 2);
+      Mouse.Click(mouse_Left);
+
+      repeat
+        Wait(RandomRange(750,1500));
+      until((not Minimap.isFlagPresent(50)) or (timer.GetTime() > 10000));
+      Minimap.WaitPlayerMoving(False, 5000, 200);
+    end
+  end;
+end;
+
+//function: MineCopper
+function MineCopper(): Boolean;
+var
+  TPA, Rock: TPointArray;
+  ATPA, ATPA2: T2DPointArray;
+  timer: TTimeMarker;
+  invCount: Integer;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+
+  if(SRL.FindColors(TPA, CTS2(4150896, 5, 0.10, 0.13), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(3);
+    ATPA.FilterSize(50, 500);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    Wait(RandomRange(350, 600));
+
+    for Rock in ATPA do
+    begin
+      invCount := Inventory.Count();
+      Mouse.Move(Rock[Random(Length(Rock))]);
+      Mouse.Click(mouse_Right);
+      Wait(RandomRange(350, 600));
+      if(ChooseOption.Select('ine', mouse_Left, true, false)) then
+      begin
+        timer.Start();
+        repeat
+          wait(RandomRange(150,300));
+          ClearCont();
+          if(timer.GetTime() > 6000) then
+          begin
+            Result := False;
+            Exit;
+          end;
+        until((Inventory.Count() > invCount) or NotOkay);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+    {$IFDEF SMART}
+      Smart.Image.Clear;
+    {$ENDIF}
+
+    Result := False;
+  end;
+  begin
+    if FindDTM(arrowMiniDTM, x, y, Minimap.GetBounds()) then
+    begin
+      RandMouse(x, y, 2);
+      Mouse.Click(mouse_Left);
+
+      repeat
+        Wait(RandomRange(750,1500));
+      until((not Minimap.isFlagPresent(50)) or (timer.GetTime() > 10000));
+      Minimap.WaitPlayerMoving(False, 5000, 200);
+    end
+  end;
+end;
+
+//function DoMiningTutor();
+function DoMiningTutor(): Boolean;
+var
+  invCount: Integer;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  DoMyAntiban();
+  Minimap.SetCompassAngle(RandomRange(80, 100), False);
+  //go down ladder
+  repeat
+    Wait(RandomRange(750,1500));   //add find option here
+  until(ClickArrow(['own', 'add']) or NotOkay());
+
+  //click continue option
+  ClearCont();
+
+  DoMyAntiban();
+  if(Minimap.GetCompassAngle(True) > 100) or (Minimap.GetCompassAngle(True) < 80) then
+    Minimap.SetCompassAngle(RandomRange(80,100), False);
+
+  //walk towards cave
+  Wait(RandomRange(750,1500));
+  RandMouse(600, 50, 10);//this is not failsafe
+  Mouse.Click(mouse_Left);
+  repeat
+    Wait(RandomRange(750,1500));
+  until(not Minimap.isFlagPresent(50) or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  {*ST();
+  DoMyAntiban();
+  //prospect tin
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(ProspectTin() or NotOkay());
+  //repeat
+  //  Wait(RandomRange(350, 600));
+  //until(Chatbox.FindOption(['copp', 'tin', 'mine'], [clBlack]) or NotOkay());
+
+  DoMyAntiban();
+  //prospect copper
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(ProspectCopper() or NotOkay());
+  //repeat
+  //  Wait(RandomRange(350, 600));
+  //until(Chatbox.FindOption(['copp', 'mine'], [clBlack]) or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());*}
+
+  ST();
+  DoMyAntiban();
+  //mine tin
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(MineTin() or NotOkay());
+  //repeat
+  //  Wait(RandomRange(350, 600));
+  //until(Chatbox.FindOption(['man'], [clBlack]) or NotOkay());
+
+  //drop extra tin
+  DoMyAntiban();
+  if (Inventory.Count() > 10) then
+    Inventory.DropItems([10..Inventory.Count()], ['']);
+
+  DoMyAntiban();
+  //mine copper
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(MineCopper() or NotOkay());
+  //repeat
+  //  Wait(RandomRange(350, 600));
+  //until(Chatbox.FindOption(['man'], [clBlack]) or NotOkay());
+
+  //drop extra tin
+  DoMyAntiban();
+  if (Inventory.Count() > 11) then
+    Inventory.DropItems([11..Inventory.Count()], ['']);
+
+  ST();
+  DoMyAntiban();
+  //smelt
+  repeat
+    invCount := Inventory.Count();
+  until(Inventory.IsOpen() or NotOkay());
+  repeat
+    if FindMainArrow() then
+      Inventory.Use(9);
+
+    Wait(RandomRange(350, 600));
+    ClickArrow(['urn']);
+    Wait(RandomRange(1000, 3000));
+  until((Inventory.Count() < invCount) or NotOkay());   //add chatbox check here
+
+  //click continue option
+  repeat
+    Wait(RandomRange(350,600));
+  until(not ClearCont());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //open anvil menu
+  repeat
+    ClickArrow(['nvil']);
+    Wait(RandomRange(1000, 3000));
+  until(FindMenuText('What would') or NotOkay());
+
+  //make dagger
+  Wait(RandomRange(350, 600));
+  RandMouse(40, 60, 7);
+  Mouse.Click(mouse_Left);
+  Wait(RandomRange(350, 600));
+  RandMouse(Inventory.GetSlotBox(9).Middle(), 7);
+  repeat
+    Wait(RandomRange(350, 600));
+  until(MainScreen.IsUpText('agger') or NotOkay());
+
+  DoMyAntiban();
+  //go through gate
+  repeat
+    Wait(RandomRange(750,1500));
+    PrintOp();
+  until(RightClickArrow(['ate']) or Chatbox.FindNPCChat('ombat') or NotOkay());
+
+  DoMyAntiban();
+  //drop extra ores
+  if(Inventory.Count() > 11) then
+    Inventory.DropItems([11,12], []);
+
+
+end;
+
+//function: OpenRatGate
+function OpenRatGate(): Boolean;
+var
+  TPA, Gate: TPointArray;
+  ATPA: T2DPointArray;
+  cs: TColorSettings;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  x := Minimap.Center.X;
+  y := Minimap.GetBounds().Y2;
+
+  if(SRL.FindColors(TPA, CTS2(5725022, 22, 0.43, 0.07), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(10);
+    ATPA.FilterSize(10, 150);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+    for Gate in ATPA do
+    begin
+      Wait(RandomRange(350,600));
+      Mouse.Move(Gate[Random(Length(Gate))]);
+
+      if (MainScreen.IsUpText('ate')) then
+      begin
+        if(ChooseOption.Select(['pen', 'ate'], mouse_Left, True, False)) then
+        begin
+          Mouse.Click(mouse_Right);
+          Wait(RandomRange(350, 600));
+          if ClearCont() then
+            Result := False;
+
+          Result := True;
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+
+          Exit;
+        end;
+      end;
+
+    end;
+  end
+
+  if FindColorSpiralTolerance(x, y, 239, Minimap.GetBounds(), 12) then
+  begin
+    RandMouse(x, y, 8);
+    Mouse.Click(mouse_Left);
+    repeat
+      Wait(RandomRange(350, 600));
+    until(not Minimap.isPlayerMoving(200) or NotOkay());
+    Result := False;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+  Result := False;
+end;
+
+//function: attackRat
+function AttackRat(): Boolean;
+var
+  TPA, Rat: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  if(SRL.FindColors(TPA, CTS2(7305337, 13, 0.13, 0.08), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(1);
+    ATPA.FilterSize(200, 700);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Rat in ATPA do
+    begin
+      Wait(RandomRange(350,600));
+      Mouse.Move(Rat[Random(Length(Rat))]);
+
+      if (MainScreen.IsUpText('rat')) then
+      begin
+        Mouse.Click(mouse_Right);
+        if ChooseOption.Select(['tack'], mouse_Left, True, False) then
+        begin
+          Result := True;
+          {$IFDEF SMART}
+            Smart.Image.Clear;
+          {$ENDIF}
+          Wait(500);
+          Exit;
+        end;
+      end;
+
+    end;
+  end;
+  Result := False;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function InCombat(): Boolean;
+function InCombat(): Boolean;
+var
+  timer: TTimeMarker;
+  hpBars: THPBarArray;
+  bar: THPBar;
+  i: Integer;
+  diff: Extended;
+
+begin
+  timer.Start();
+  repeat
+    hpBars := MainScreen.FindHPBars(MainScreen.GetPlayerBox());
+
+    for bar in hpBars do
+    begin
+      diff := Abs(Minimap.GetHPPercent() - (bar.Percent));
+      if (diff < 10) then
+        Exit(True);
+    end;
+  until(timer.GetTime() > 500);
+
+  Result := False;
+end;
+
+//function DoCombatTutor();
+function DoCombatTutor(): Boolean;
+var
+  timer: TTimeMarker;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //click equipment tab
+  repeat
+  begin
+    Wait(RandomRange(350, 600));
+    RandMouse(675, 185, 7);
+    Mouse.Click(mouse_Left);
+  end;
+  until(Equipment.IsOpen() or NotOkay());
+
+  DoMyAntiban();
+  //open equipped menu
+  Wait(RandomRange(350, 600)); //not failsafe
+  RandMouse(575, 430, 7);
+  Mouse.Click(mouse_Left);
+
+  //equip dagger
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    Inventory.MouseSlot(9, mouse_Right);
+  until(ChooseOption.Select(['Eq', 'qu', 'Wiel'], mouse_Left, true, false) or NotOkay());
+
+  //close equimpent menu
+  Wait(RandomRange(350, 600));
+  RandMouse(490, 25, 7);
+  Mouse.Click(mouse_Left);
+  Wait(RandomRange(350, 600));
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to 'flashing icon' message
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //open equipped menu again
+  Wait(RandomRange(350, 600));
+  RandMouse(575, 430, 7);
+  Mouse.Click(mouse_Left);
+
+  //equip sword
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    Inventory.MouseSlot(9, mouse_Right);
+    Writeln(ChooseOption.GetOptions());
+  until(ChooseOption.Select(['Eq', 'qu', 'Wiel'], mouse_Left, true, false) or NotOkay());
+
+  //equip shield
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    Inventory.MouseSlot(11, mouse_Right);
+  until(ChooseOption.Select(['Eq', 'qu', 'Wiel'], mouse_Left, true, false) or NotOkay());
+
+  DoMyAntiban();
+  //open combat tab
+  Wait(RandomRange(750, 1500));
+  repeat
+  begin
+    Wait(RandomRange(500, 600));
+    RandMouse(540, 185, 7);
+    Mouse.Click(mouse_Left);
+  end;
+  until(Combat.IsOpen() or NotOkay());
+
+  ST();
+  DoMyAntiban();
+  //go through gate
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(750,1500));
+    RightClickArrow(['pen', 'ate']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('rat') or NotOkay());
+
+  DoMyAntiban();
+  //kill rat
+  Wait(RandomRange(750, 1500));
+  repeat
+  begin
+    if not InCombat() then AttackRat();
+    Wait(RandomRange(3000,5000));
+    if not ClearCont() then
+    begin
+      timer.Reset();
+      timer.Start();
+      repeat
+        Wait(100);
+        PrintOp();
+      until(Chatbox.FindNPCChat('rang') or NotOkay(180) or (timer.GetTime() > 15000));
+    end;
+    PrintOp();
+  end;
+  until(Chatbox.FindNPCChat('next') or NotOkay(180));
+
+  DoMyAntiban();
+  //go back through gate
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(750,1500));
+  until(OpenRatGate() or NotOkay(180));
+
+  ST();
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay(180));
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay(180));
+
+  DoMyAntiban();
+  //equip bow
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    Inventory.MouseSlot(11, mouse_Right);
+  until(ChooseOption.Select(['Eq', 'qu', 'We', 'ld'], mouse_Left, true, false) or NotOkay(180));
+
+  DoMyAntiban();
+  //equip arrows
+  Wait(RandomRange(750, 1500));
+  repeat
+    Wait(RandomRange(350, 600));
+    Inventory.MouseSlot(12, mouse_Right);
+  until(ChooseOption.Select(['Eq', 'qu', 'We', 'ld'], mouse_Left, true, false) or NotOkay(180));
+
+  //walk towards cage gate
+  Wait(RandomRange(750,1500));
+  RandMouse(675, 100, 10);//this is not failsafe
+  Mouse.Click(mouse_Left);
+  repeat
+    Wait(RandomRange(750,1500));
+  until(not Minimap.isFlagPresent(50) or NotOkay());
+
+  ST();
+  DoMyAntiban();
+  //attack rat
+  Wait(RandomRange(750, 1500));
+  repeat
+    AttackRat();
+    Wait(RandomRange(3000,5000));
+    if not ClearCont() then
+      begin
+        timer.Reset();
+        timer.Start();
+        repeat
+          Wait(100);
+          PrintOp();
+        until(Chatbox.FindNPCChat('adde') or NotOkay(180) or (timer.GetTime() > 15000));
+      end;
+      PrintOp();
+  until(Chatbox.FindNPCChat('adde') or NotOkay(180));
+
+  DoMyAntiban();
+  //go up ladder
+  repeat
+    RightClickArrow(['up']);
+    Wait(RandomRange(750,1500));
+    PrintOp();
+  until(Chatbox.FindNPCChat('path') or NotOkay(180));
+
+  Result := True;
+end;
+
+//function: OpenBankDoor
+function OpenBankDoor(): Boolean;
+var
+  TPA, Door: TPointArray;
+  ATPA: T2DPointArray;
+  pollDTM: Integer;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  pollDTM := DTMFromString('mbQAAAHicY2VgYJjLBMHTofRSIE4DiicwQOg8IE4HYs2zHkCSEQWLMGACRiwYDAAeegZ/');
+  if not FindDTM(pollDTM, x, y, Minimap.GetBounds()) then
+  begin
+    x := Minimap.Center.X;
+    y := Minimap.Center.Y;
+  end;
+  FreeDTM(pollDTM);
+  if(SRL.FindColors(TPA, CTS2(1343400, 6, 0.01, 0.13), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(3);
+    ATPA.FilterSize(1, 300);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Door in ATPA do
+    begin
+      Wait(RandomRange(350,600));
+      Mouse.Move(Door[Random(Length(Door))]);
+
+      if (MainScreen.IsUpText('pen')) then
+      begin
+        Mouse.Click(mouse_left);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end
+      else if (MainScreen.IsUpText('los')) then
+      begin
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+  end
+  if FindColorSpiralTolerance(x, y, 239, Minimap.GetBounds(), 12) then
+  begin
+    RandMouse(x, y, 10);
+    Mouse.Click(mouse_Left);
+    repeat
+      Wait(RandomRange(350, 600));
+    until(not Minimap.isPlayerMoving(200) or NotOkay());
+    Result := False;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function DoBankTutor()
+function DoBankTutor(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+
+    repeat
+      Wait(RandomRange(1000,3000));
+    until(OpenBankDoor() or NotOkay());
+
+      //click continue option
+      Wait(RandomRange(350, 600));
+      RandMouse(270, 430, 7);
+      Mouse.Click(mouse_Left);
+  until(RightClickArrow(['ank']) or NotOkay());
+
+  {*DoMyAntiban();
+  //access bank
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+  Wait(RandomRange(350, 600));
+  Chatbox.ClickOption(['Yes'], [clBlack, clWhite]); //this is not failsafe*}
+
+  //close bank booth
+  Wait(RandomRange(700, 1200));//this is not failsafe
+  RandMouse(485, 25, 7);
+  Mouse.Click(mouse_Left);
+
+  DoMyAntiban();
+  //poll booth
+  repeat
+    Wait(RandomRange(750,1500));
+  until(ClickArrow(['ooth']) or NotOkay());
+
+  //continue through dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  //close poll booth
+  Wait(RandomRange(700, 1200));//this is not failsafe
+  RandMouse(490, 25, 7);
+  Mouse.Click(mouse_Left);
+
+  DoMyAntiban();
+  //go through door
+  repeat
+    Wait(RandomRange(750,1500));
+    ClickArrow(['oor']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('hear') or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //click player management
+  repeat
+  begin
+    Wait(RandomRange(350,600));
+    RandMouse(610, 485, 7);
+    Mouse.Click(mouse_Left);
+  end;
+  until(Chatbox.FindNPCChat('flashing') or  NotOkay);
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));;
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //go through door
+  repeat
+    Wait(RandomRange(750,1500));
+    ClickArrow(['oor', 'pen']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('skill') or NotOkay());
+
+end;
+
+//function: OpenChurchDoor
+function OpenChurchDoor(): Boolean;
+var
+  TPA, Door: TPointArray;
+  ATPA: T2DPointArray;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  x := Minimap.Center.X;
+  y := Minimap.Center.Y;
+
+  if(SRL.FindColors(TPA, CTS2(3494772, 2, 0.20, 0.48), MainScreen.GetBounds) > 0) then
+  begin
+    ATPA := TPA.Cluster(5);
+    ATPA.FilterSize(1, 300);
+    ATPA.SortByIndex(MainScreen.GetMiddle());
+
+    {$IFDEF SMART}
+      Smart.Image.DrawATPA(ATPA);
+    {$ENDIF}
+
+    for Door in ATPA do
+    begin
+      Wait(RandomRange(350,600));
+      Mouse.Move(Door[Random(Length(Door))]);
+
+      if (MainScreen.IsUpText('pen')) then
+      begin
+        Mouse.Click(mouse_left);
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end
+      else if (MainScreen.IsUpText('los')) then
+      begin
+        Result := True;
+        {$IFDEF SMART}
+          Smart.Image.Clear;
+        {$ENDIF}
+        Exit;
+      end;
+
+    end;
+  end
+  if FindColorSpiralTolerance(x, y, 239, Minimap.GetBounds(), 12) then
+  begin
+    RandMouse(x, y, 10);
+    Mouse.Click(mouse_Left);
+    repeat
+      Wait(RandomRange(350, 600));
+    until(not Minimap.isPlayerMoving(200) or NotOkay());
+    Result := False;
+  end;
+  {$IFDEF SMART}
+    Smart.Image.Clear;
+  {$ENDIF}
+end;
+
+//function DoPrayerTutor
+function DoPrayerTutor(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+  DoMyAntiban();
+  //walk south
+  Minimap.SetCompassAngle(0, false);
+  Wait(600);
+  RandMouse(650, 135, 10);//this is not failsafe
+  Mouse.Click(mouse_Left);
+  repeat
+    Wait(RandomRange(750,1500));
+  until(not Minimap.isFlagPresent(50) or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+
+    {*repeat
+      Wait(RandomRange(1000,3000));
+    until(OpenChurchDoor() or NotOkay());
+
+    //click continue option
+    Wait(RandomRange(350, 600));
+    RandMouse(270, 430, 7);
+    Mouse.Click(mouse_Left);*}
+
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //open prayer tab
+  repeat
+  begin
+    Wait(RandomRange(350, 600));
+    RandMouse(705, 185, 7);
+    Mouse.Click(mouse_Left);
+  end;
+  until(Prayer.IsOpen() or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //open friends tab
+  Wait(RandomRange(350, 600));  //not failsafe
+  RandMouse(575, 485, 7);
+  Mouse.Click(mouse_Left);
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //go through door
+  repeat
+    Wait(RandomRange(750,1500));
+    ClickArrow(['oor']);
+    PrintOp();
+  until(Chatbox.FindNPCChat('path') or NotOkay());
+
+  Result := True;
+end;
+
+//function AttackChicken();
+function AttackChicken(): Boolean; overload;
+var
+  timer: TTimeMarker;
+  chickenCoopDTM: Integer;
+  a: Extended;
+
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  chickenCoopDTM := DTMFromString('mrAAAAHic42BgYKhgYmDIh+IGIG6BYhC7CojdgGpygbgOiJugdCFUDIQLAk0Y3r74ioHfvXvH8AEo/x+IjXBgESBmJIBhAAARZBxV');
+  timer.Start();
+
+  repeat
+  begin
+    if FindDTMRotated(chickenCoopDTM, x, y, Minimap.GetBounds(), -10.0, 350.0, 1.0, a) then
+    begin
+      RandMouse(x, y, 4);
+      Mouse.Click(mouse_Left);
+
+      repeat
+        Wait(RandomRange(750,1500));
+      until((not Minimap.isPlayerMoving(200)) or (timer.GetTime() > 10000) or NotOkay());
+
+      //attack
+      repeat
+        //click air spell
+        Wait(RandomRange(350, 600));
+        RandMouse(619, 230, 4);
+        Mouse.Click(mouse_Left);
+        Wait(RandomRange(750,1500));
+      until(ClickMainArrow(['ast']) or NotOkay());
+
+      FreeDTM(chickenCoopDTM);
+      Result := True;
+      Wait(750);
+      Exit;
+    end;
+
+  end;
+  until((timer.GetTime() > 10000) or NotOkay());
+  FreeDTM(chickenCoopDTM);
+  Result := False;
+end;
+
+//function DoMageTutor
+function DoMageTutor(): Boolean;
+begin
+  if not SRL.isLoggedIn() then
+    Exit;
+
+  ST();
+  DoMyAntiban();
+  //walk southeast
+  Wait(RandomRange(350, 600));    //not failsafe
+  RandMouse(470, 120, 15);
+  Mouse.Click(mouse_Left);
+  repeat
+    Wait(RandomRange(750,1500));
+  until(not Minimap.isFlagPresent(50) or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  //open spells tab
+  repeat
+  begin;
+    Wait(RandomRange(350, 600));
+    RandMouse(740, 185, 7);
+    Mouse.Click(mouse_Left);
+  end;
+  until(Spells.IsOpen() or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  DoMyAntiban();
+  Minimap.SetCompassAngle(RandomRange(350, 370), False);
+  Spells.Open;
+  //attack chicken
+  repeat
+    Wait(RandomRange(350, 600));
+  until(AttackChicken() or NotOkay());
+
+  DoMyAntiban();
+  //engage tutor
+  repeat
+    Wait(RandomRange(1000,3000));
+  until(LocateTutor() or NotOkay());
+
+  //choose go to mainland
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+  Wait(RandomRange(350, 600));
+  Chatbox.ClickOption(['Yes'], [clBlack, clWhite]);   //not failsafe
+
+  //choose NO to ironman
+  Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  Chatbox.ChatToOption(['plan'], True, [clBlack, clWhite]);    //not failsafe
+
+  //continue to end of dialogue
+  repeat
+    Wait(RandomRange(MIN_READ_TIME, MAX_READ_TIME));
+  until(not ManualContinue() or NotOkay());
+
+  Result := True;
+end;
+
+
+//Main Loop
+begin
+  if SetUp() then
+    Writeln('Ready to roll!');
+
+  repeat//main loop
+    if not SRL.isLoggedIn() then
+    begin
+      Players.LoginCurrent();
+    end;
+
+
+    Writeln('Design');
+    DesignCharacter();
+    Wait(1500);
+    DoFirstTutor();
+    Wait(750);
+    DoSurvivalTutor();
+    Wait(750);
+    DoCookingTutor();
+    Wait(750);
+    DoQuestTutor();
+    Wait(750);
+    DoMiningTutor();
+    Wait(750);
+    DoCombatTutor();
+    Wait(750);
+    DoBankTutor();
+    Wait(750);
+    DoPrayerTutor();
+    Wait(750);
+    if DoMageTutor() then
+      Writeln(Players.GetCurrent()^.LoginName + ': Made it through!');
+    Wait(RandomRange(1500,3000));
+    DoMyAntiban();
+    Players.GetCurrent()^.isActive := False;
+    Logout.ClickLogout();
+
+  if (Players.GetActive() = 0) then
+  begin
+    FreeDTM(arrowDTM);
+    FreeDTM(arrowMiniDTM);
+  end
+  else
+    Players.Next();
+
+  until(Players.GetActive() = 0);
+end.
