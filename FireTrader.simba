@@ -195,7 +195,7 @@ begin
 
   SRL.Setup();
 
-  Walk.Init('karam-sarim-lumy.png', -1);
+  Walk.Init('karam-sarim-lumy.png');
   Walk.MinRunEnergy := 20;
   pDock := [[38, 407], [88, 373], [205, 406], [273, 492], [442, 491]];
 
