@@ -383,17 +383,17 @@ begin
     maxActiveTime := RandomRange(1 * ONE_HOUR, 2 * ONE_HOUR);
 
     repeat
-			if not SRL.isLoggedIn() then
-			begin
-				Players.LoginCurrent();
-				Wait(200, 500);
-				MainScreen.SetAngle(True);
-				Wait(200, 500);
-				Options.SetZoomNotch(ZOOM_NOTCH_50);
-				Wait(200, 500);
-				Combat.ToggleButton(cbtControlled, True, 1000);
-				Wait(500, 750);
-			end;
+      if not SRL.isLoggedIn() then
+      begin
+        Players.LoginCurrent();
+        Wait(200, 500);
+        MainScreen.SetAngle(True);
+        Wait(200, 500);
+        Options.SetZoomNotch(ZOOM_NOTCH_50);
+        Wait(200, 500);
+        Combat.ToggleButton(cbtControlled, True, 1000);
+        Wait(500, 750);
+      end;
 	  
       if IsDead() then
       begin
