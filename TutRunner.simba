@@ -1203,7 +1203,7 @@ begin
   repeat
     Wait(RandomRange(350, 600));
     GameTabs.Open(tabQuests);
-  until((GetColor(570, 220) = 2070783) or NotOkay());
+  until((GetColor(560, 240) = 2070783) or NotOkay());
 
   DoMyAntiban();
   //engage tutor
