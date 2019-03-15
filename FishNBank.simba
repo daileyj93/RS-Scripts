@@ -681,9 +681,13 @@ procedure SetupPlayer();
 begin
   if not SRL.isLoggedIn() then
   begin
-    Players.LoginCurrent();
-    MainScreen.SetAngle(True);
-    Options.SetZoomNotch(ZOOM_NOTCH_50);
+    if Players.LoginCurrent() then
+    begin
+      MainScreen.SetAngle(True);
+      Options.SetZoomNotch(ZOOM_NOTCH_50);
+    end
+    else
+      Players.GetCurrent()^.isActive := False;
   end;
 
   Writeln('Setting up player');
