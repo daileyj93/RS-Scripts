@@ -326,7 +326,7 @@ begin
     FindColors(TPA, 0, Minimap.GetBounds());
     if (TPA.Len() >= 1000) then
       Wait(500, 1000);	
-  until((TPA.Len() < 1000) or timer.GetTime() > 5000);
+  until((TPA.Len() < 1000) or (timer.GetTime() > 5000));
 	
   if(Walk.GetMyPos().InBox(Box(180, 325, 250, 330))) then
     Exit(True);
