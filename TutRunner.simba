@@ -2310,6 +2310,16 @@ begin
     ClickArrow(['oor']);
     PrintOp();
   until(Chatbox.FindNPCChat('path') or NotOkay());
+  
+  DoMyAntiban();
+  //walk southeast
+  Minimap.SetCompassAngle(0, false);
+  Wait(600);
+  RandMouse(665, 110, 10);//this is not failsafe
+  Mouse.Click(mouse_Left);
+  repeat
+    Wait(RandomRange(750,1500));
+  until(not Minimap.isFlagPresent(50) or NotOkay());
 
   Result := True;
 end;
